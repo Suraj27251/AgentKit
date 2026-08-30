@@ -297,13 +297,6 @@ Open **[http://localhost:3000](http://localhost:3000)**, sign in with `demo` / `
 
 ---
 
-<div align="center">
-
-**[⬆ Back to top](#-queryline)**
-
-Made with ⚡ [Lamatic AgentKit](https://lamatic.ai)
-
-</div>
 ## Further possible development
 
 Below is a curated list of feasible enhancements that build directly on the existing Queryline (nl-to-sql-agent) foundation. These ideas leverage the already‑implemented history system, copy/export utilities, safety validation, and modular architecture—so they can be added with relatively low effort while delivering high value.
@@ -380,3 +373,11 @@ flowchart TD
 - ★☆☆ Medium effort (may require new nodes or slight flow changes)  
 
 These extensions can be adopted incrementally, each building on the solid, safety‑first foundation already present in Queryline. Happy building! 🚀
+
+<div align="center">
+
+**[⬆ Back to top](#-queryline)**
+
+Made with ⚡ [Lamatic AgentKit](https://lamatic.ai)
+
+</div>
