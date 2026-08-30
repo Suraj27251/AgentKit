@@ -34,7 +34,7 @@
 <!-- <a href="https://github.com/Lamatic/AgentKit/actions">
   <img src="https://img.shields.io/github/actions/workflow/status/Lamatic/AgentKit/ci.yml?branch=main" alt="CI/CD Status" />
 </a>   -->
-<img src="https://img.shields.io/coderabbit/prs/github/Lamatic/AgentKit?utm_source=oss&utm_medium=github&utm_campaign=Lamatic%2FAgentKit&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews">
+<img src="https://shields.io/coderabbit/prs/github/Lamatic/AgentKit?utm_source=oss&utm_medium=github&utm_campaign=Lamatic%2FAgentKit&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews">
 <img src="https://github.com/Lamatic/AgentKit/actions/workflows/review-challenge-prs.yml/badge.svg">
 
 ## ✨ About AgentKit
@@ -158,9 +158,6 @@ The section below is **auto-generated from [`registry.json`](./registry.json)**.
 
 ---
 
-_Generated from [`registry.json`](./registry.json) • Last updated: 2026-04-20_
-<!-- REGISTRY:END -->
-
 > 💡 Each kit folder includes its own `README.md` with specific setup steps, required keys, and example Lamatic flows.
 
 ## 🏛️ Architecture Overview
@@ -238,3 +235,80 @@ We welcome your ideas and improvements! See [CONTRIBUTING.md](./CONTRIBUTING.md)
 ***
 
 Powerful, scalable agentic automations for the modern enterprise with security, speed, and service at the core.
+
+## Further possible development
+
+Below is a curated list of feasible enhancements that build directly on the existing Queryline (nl-to-sql-agent) foundation. These ideas leverage the already‑implemented history system, copy/export utilities, safety validation, and modular architecture—so they can be added with relatively low effort while delivering high value.
+
+### 📊 Feature Overview
+
+| Feature | Description | Effort | Icons |
+|---|---|---|---|
+| **Summary / Insights Panel** | Auto‑generate statistics (row counts, distinct values, date ranges, simple aggregations) and display them in the UI (already scaffolded, just needs data from orchestrate). | Low | 📈 📊 |
+| **Query Templates (Enhanced Favorites)** | Save favorite queries as named, parameterized templates (e.g., “Show customers from `{state}` with `{plan}` plan”) with tags and sharing. | Low‑Medium | 📋 🔖 |
+| **Result‑Based Follow‑up Suggestions** | After seeing results, propose natural‑language follow‑ups (“You saw high usage from Channel X—want to see trend over time?”). | Low | 💡 ➡️ |
+| **Auto‑Chart Recommendations** | Analyze result set to suggest chart types (time series → line, categorical → bar, proportions → pie) and optionally render them with a lightweight charting library. | Low‑Medium | 📊 📈 |
+| **Query Performance Hints** | Run an EXPLAIN plan (read‑only) on safe queries to warn about table scans, missing indexes, or expensive operations. | Medium | ⚡ 🔍 |
+| **Multiple Dialect Support** | Add a dropdown to switch between SQL Server, PostgreSQL, MySQL, etc.; adjust validation (TOP vs LIMIT) and prompts per dialect. | Medium | 🌐 🔀 |
+| **Scheduled Query Reports** | New Lamatic flow that runs saved queries on a cron‑like schedule and emails results (Gmail/Slack) or stores them in a blob. | Medium | ⏰ 📧 |
+| **User‑Defined Semantic Layer** | Allow users to define aliases, calculated fields, or saved views via NL (“create a view called … as …”) and reuse them in later questions. | Medium | 🧩 📚 |
+| **Feedback Loop for Model Improvement** | Capture thumbs‑up/down on generated SQL or explanations, store feedback, and periodically tune prompts or fine‑tune the LLM. | Low | 👍 👎 🔁 |
+| **Role‑Based Access Control (RBAC)** | Leverage Lamatic’s built‑in auth (JWT/OIDC) to gate which flows/users can run and apply row‑level security based on groups/claims. | Medium | 🔐 👥 |
+| **Containerized Deployment & CI/CD** | Add Dockerfile for the Next.js app, GitHub Actions to build/test/deploy to Vercel/Netlify, and automate flow deployment via Lamatic CLI. | Low | 🐳 🚀 |
+| **Comprehensive Test Suite** | Unit tests for validation/aggregation scripts (Jest), end‑to‑end Playwright tests for the UI, and contract tests for the Lamatic flow using its `testInput`. | Low | ✅ 🧪 |
+
+### 🔗 Interaction Diagram (Mermaid)
+
+The following diagram shows how the proposed extensions would integrate with the existing Queryline architecture:
+
+```mermaid
+flowchart TD
+    A[User Question] --> B(Lamatic Flow: NL → SQL)
+    B --> C{SQL Safety Validation}
+    C -- Safe --> D[MSSQL Execution]
+    C -- Unsafe --> Z[Return Error]
+    D --> E[Lamatic: Explain SQL]
+    E --> F[Aggregate Response]
+    F --> G[Next.js App: UI]
+    G --> H[History System ★★]
+    G --> I[Copy/Export ★★]
+    G --> J[Filter Results ★★]
+    G --> K[Summary/Insights ★☆]
+    G --> L[Query Templates ★☆]
+    G --> M[Follow‑up Suggestions ★☆]
+    G --> N[Chart Recommendations ★☆]
+    G --> O[Performance Hints ★☆]
+    G --> P[Scheduled Reports ★☆]
+    G --> Q[Semantic Layer ★☆]
+    G --> R[Feedback Loop ★☆]
+    G --> S[RBAC ★☆]
+    G --> T[Containerized CI/CD ★☆]
+    G --> U[Test Suite ★☆]
+
+    style A fill:#6366F1,color:#fff
+    style C fill:#F59E0B,color:#fff
+    style D fill:#22C55E,color:#fff
+    style F fill:#6366F1,color:#fff
+    style G fill:#ECFDF5,color:#064E3B
+    style H fill:#DBEAFE,color:#1E40AF
+    style I fill:#DBEAFE,color:#1E40AF
+    style J fill:#DBEAFE,color:#1E40AF
+    style K fill:#FEF3C7,color:#92400E
+    style L fill:#FEF3C7,color:#92400E
+    style M fill:#FEF3C7,color:#92400E
+    style N fill:#FEF3C7,color:#92400E
+    style O fill:#FEF3C7,color:#92400E
+    style P fill:#FEF3C7,color:#92400E
+    style Q fill:#FEF3C7,color:#92400E
+    style R fill:#FEF3C7,color:#92400E
+    style S fill:#FEF3C7,color:#92400E
+    style T fill:#FEF3C7,color:#92400E
+    style U fill:#FEF3C7,color:#92400E
+```
+
+**Key:**  
+- ★☆ Low effort (mainly UI/orchestrator tweaks)  
+- ★★ Already implemented (history, copy/export, filtering)  
+- ★☆☆ Medium effort (may require new nodes or slight flow changes)  
+
+These extensions can be adopted incrementally, each building on the solid, safety‑first foundation already present in Queryline. Happy building! 🚀
