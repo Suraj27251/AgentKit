@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 35 55% 96%;
+    --foreground: 23 16% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 23 16% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 23 16% 20%;
+    --surface: 35 55% 96%;
+    --surface-bright: 35 55% 96%;
+    --surface-dim: 37 19% 83%;
+    --surface-container: 34 35% 92%;
+    --surface-container-low: 34 44% 94%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-high: 37 30% 89%;
+    --surface-container-highest: 37 24% 87%;
+    --surface-variant: 37 30% 89%;
+    --on-background: 23 16% 20%;
+    --on-surface: 23 16% 20%;
+    --on-surface-variant: 30 9% 35%;
+    --tint: 23 64% 46%;
+
+    --primary: 23 64% 46%;
+    --primary-foreground: 0 0% 100%;
+    --on-primary: 0 0% 100%;
+    --primary-container: 23 70% 60%;
+    --on-primary-container: 27 81% 92%;
+    --primary-fixed: 27 81% 92%;
+    --primary-fixed-dim: 24 80% 71%;
+    --on-primary-fixed: 19 78% 14%;
+    --on-primary-fixed-variant: 24 70% 32%;
+    --inverse-primary: 24 80% 71%;
+
+    --secondary: 26 6% 44%;
+    --secondary-foreground: 0 0% 100%;
+    --on-secondary: 0 0% 100%;
+    --secondary-container: 30 28% 89%;
+    --on-secondary-container: 30 9% 35%;
+    --secondary-fixed: 30 28% 89%;
+    --secondary-fixed-dim: 30 14% 78%;
+    --on-secondary-fixed: 24 14% 15%;
+    --on-secondary-fixed-variant: 30 11% 28%;
+
+    --tertiary: 0 40% 39%;
+    --tertiary-foreground: 0 0% 100%;
+    --on-tertiary: 0 0% 100%;
+    --tertiary-container: 0 54% 64%;
+    --on-tertiary-container: 0 29% 18%;
+    --tertiary-fixed: 0 82% 93%;
+    --tertiary-fixed-dim: 0 61% 77%;
+    --on-tertiary-fixed: 0 37% 13%;
+    --on-tertiary-fixed-variant: 0 39% 31%;
+
+    --error: 6 63% 46%;
+    --on-error: 0 0% 100%;
+    --error-container: 9 82% 93%;
+    --on-error-container: 6 77% 27%;
+    --destructive: 6 63% 46%;
+    --destructive-foreground: 0 0% 100%;
+
+    --outline: 27 8% 57%;
+    --outline-variant: 30 17% 82%;
+
+    --inverse-surface: 23 16% 20%;
+    --inverse-on-surface: 35 55% 96%;
+
+    --muted: 37 30% 89%;
+    --muted-foreground: 30 9% 35%;
+    --accent: 37 30% 89%;
+    --accent-foreground: 23 16% 20%;
+    --border: 30 17% 82%;
+    --input: 30 17% 82%;
+    --ring: 23 64% 46%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 24 18% 10%;
+    --foreground: 32 40% 90%;
+    --card: 24 15% 12%;
+    --card-foreground: 32 40% 90%;
+    --popover: 24 15% 12%;
+    --popover-foreground: 32 40% 90%;
+    --surface: 24 18% 10%;
+    --surface-bright: 24 16% 16%;
+    --surface-dim: 24 18% 8%;
+    --surface-container: 24 16% 16%;
+    --surface-container-low: 24 16% 14%;
+    --surface-container-lowest: 24 15% 12%;
+    --surface-container-high: 24 14% 19%;
+    --surface-container-highest: 24 13% 22%;
+    --surface-variant: 24 12% 18%;
+    --on-background: 32 40% 90%;
+    --on-surface: 32 40% 90%;
+    --on-surface-variant: 30 12% 70%;
+    --tint: 24 80% 71%;
+
+    --primary: 24 80% 71%;
+    --primary-foreground: 24 70% 18%;
+    --on-primary: 24 70% 18%;
+    --primary-container: 24 45% 26%;
+    --on-primary-container: 26 90% 82%;
+    --primary-fixed: 26 90% 82%;
+    --primary-fixed-dim: 24 80% 71%;
+    --on-primary-fixed: 24 70% 18%;
+    --on-primary-fixed-variant: 24 74% 32%;
+    --inverse-primary: 23 64% 46%;
+
+    --secondary: 28 16% 78%;
+    --secondary-foreground: 24 15% 20%;
+    --on-secondary: 24 15% 20%;
+    --secondary-container: 26 10% 26%;
+    --on-secondary-container: 30 14% 84%;
+    --secondary-fixed: 26 10% 28%;
+    --secondary-fixed-dim: 26 10% 32%;
+    --on-secondary-fixed: 30 14% 84%;
+    --on-secondary-fixed-variant: 30 14% 84%;
+
+    --tertiary: 0 40% 78%;
+    --tertiary-foreground: 0 37% 18%;
+    --on-tertiary: 0 37% 18%;
+    --tertiary-container: 0 22% 26%;
+    --on-tertiary-container: 0 40% 90%;
+    --tertiary-fixed: 0 22% 28%;
+    --tertiary-fixed-dim: 0 22% 32%;
+    --on-tertiary-fixed: 0 40% 90%;
+    --on-tertiary-fixed-variant: 0 40% 90%;
+
+    --error: 6 62% 76%;
+    --on-error: 6 77% 25%;
+    --error-container: 6 50% 28%;
+    --on-error-container: 9 82% 92%;
+    --destructive: 6 62% 76%;
+    --destructive-foreground: 6 77% 25%;
+
+    --outline: 27 8% 52%;
+    --outline-variant: 24 8% 28%;
+
+    --inverse-surface: 35 55% 96%;
+    --inverse-on-surface: 24 18% 10%;
+
+    --muted: 24 14% 19%;
+    --muted-foreground: 30 12% 70%;
+    --accent: 24 14% 19%;
+    --accent-foreground: 32 40% 90%;
+    --border: 24 8% 28%;
+    --input: 24 8% 28%;
+    --ring: 24 80% 71%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-headline), ui-serif, Georgia, serif;
+  }
+}
+
+@layer utilities {
+  /* Warm grid backdrop used across the shell */
+  .grid-bg {
+    background-size: 40px 40px;
+    background-image:
+      linear-gradient(to right, rgba(216, 208, 200, 0.22) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(216, 208, 200, 0.22) 1px, transparent 1px);
+  }
+
+  .dark .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(216, 208, 200, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(216, 208, 200, 0.06) 1px, transparent 1px);
+  }
+
+  /* Slim warm scrollbars for data tables / code blocks */
+  .table-scroll::-webkit-scrollbar,
+  .code-scroll::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  .table-scroll::-webkit-scrollbar-track,
+  .code-scroll::-webkit-scrollbar-track {
+    background: hsl(var(--surface-container-low));
+  }
+  .table-scroll::-webkit-scrollbar-thumb,
+  .code-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--outline-variant));
+    border-radius: 4px;
+  }
+  .table-scroll::-webkit-scrollbar-thumb:hover,
+  .code-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--outline));
+  }
+}
