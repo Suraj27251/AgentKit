@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 Queryline
+# 🗄️ Queryline
 ### Natural Language → Safe, Read-Only SQL for Microsoft SQL Server
 
 Ask your database a question in plain English. Get back a validated `SELECT` query, the results, and a plain-language explanation — no SQL required.
