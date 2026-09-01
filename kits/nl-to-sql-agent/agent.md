@@ -24,8 +24,10 @@ Step-by-step walkthrough of the node chain:
    - Must start with `SELECT`.
    - Must not contain multiple statements.
    - Must not contain write/DDL keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`).
-   - Appends `TOP 1000` when no `TOP` clause is present, bounding the result size.
-   - Outputs `{ safeSql, isSafe, error? }`.
+   - Automatically enforces a maximum result limit of 1000 rows by normalizing `TOP` clauses:
+     - Adds `TOP 1000` if no `TOP` clause is present.
+     - Caps any `TOP` value exceeding 1000 to `TOP 1000`.
+   - Outputs `{ safeSql, isSafe, error?, limitCapped? }`.
 4. **Is SQL Safe? (conditionNode)** — routes based on `isSafe`:
    - **Safe** → continues to Execute SQL.
    - **Unsafe** → skips execution; the unsafe `rawSql` and the validation error flow to aggregation.
@@ -40,13 +42,13 @@ Use this flow whenever a user supplies a natural language question about a Micro
 #### Output
 The flow returns a JSON object with these fields:
 
-- `sql` — the validated `SELECT` query (bounded with `TOP`).
+- `sql` — the validated and normalized `SELECT` query (with `TOP` enforced to maximum 1000).
 - `explanation` — plain-language explanation of what the query does.
 - `isSafe` — `"true"` or `"false"` indicating whether the query passed safety validation.
 - `results` — array of rows returned when the query is safe and execution succeeds.
 - `rowCount` — number of rows returned.
 - `error` — error message from any step that fails.
-- `warnings` — any warnings about the query or execution.
+- `warnings` — array of warning messages (e.g., when result limit was capped or no results returned).
 
 The Next.js app consumes this contract in `apps/actions/orchestrate.ts` and additionally derives a summary, insights, suggestions, and follow-up questions on the client.
 
@@ -63,7 +65,7 @@ The Next.js app consumes this contract in `apps/actions/orchestrate.ts` and addi
 - **Prohibited tasks**
   - Must not generate or execute write/DDL operations (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`).
   - Must not execute multiple SQL statements in a single request.
-  - Must not exceed `TOP 1000` result rows unless the query already specifies a smaller `TOP`.
+  - Query results are automatically limited to a maximum of 1000 rows (via normalized `TOP` clauses).
 - **Input constraints**
   - `question` must be provided and is treated as potentially adversarial input.
   - Empty or nonsensical input should be handled gracefully.
@@ -71,6 +73,7 @@ The Next.js app consumes this contract in `apps/actions/orchestrate.ts` and addi
   - Must not output raw database credentials or connection strings.
   - SQL output must be validated as read-only and safe before execution.
   - Explanations must be in plain language suitable for non-technical users.
+  - User is informed when the result limit was capped via a warning message.
 - **Operational limits**
   - Requires the Lamatic environment variables to be present at runtime.
   - Query execution depends on Microsoft SQL Server availability.

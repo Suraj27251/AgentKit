@@ -7,9 +7,25 @@ export async function login(formData: FormData) {
   const username = formData.get('username') as string;
   const password = formData.get('password') as string;
 
-  // Demo credentials - in a real app, you would check against a database or use a proper auth system.
-  const demoUsername = process.env.DEMO_USERNAME || 'demo';
-  const demoPassword = process.env.DEMO_PASSWORD || 'demo';
+  // Demo authentication must be explicitly enabled through configuration.
+  // Fail closed if configuration is incomplete or disabled.
+  const demoAuthEnabled = process.env.DEMO_AUTH_ENABLED === 'true';
+  const demoUsername = process.env.DEMO_USERNAME;
+  const demoPassword = process.env.DEMO_PASSWORD;
+
+  // Check if demo authentication is available and properly configured.
+  if (!demoAuthEnabled) {
+    // Demo authentication is disabled or not explicitly enabled.
+    // Fail closed: no default credentials are accepted.
+    redirect('/login?error=1');
+  }
+
+  // Fail closed if credentials are not fully configured.
+  if (!demoUsername || !demoPassword) {
+    // Configuration incomplete. Do not fall back to defaults.
+    // This indicates a server setup issue, not a user input error.
+    redirect('/login?error=1');
+  }
 
   if (username === demoUsername && password === demoPassword) {
     // Set the session

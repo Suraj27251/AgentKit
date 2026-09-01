@@ -149,11 +149,9 @@ export default function LoginForm() {
           </form>
 
           <div className="mt-8 border-t border-outline-variant/40 pt-6 text-center">
-            <p className="mb-2 text-xs text-on-surface-variant">Demo Access Credentials:</p>
-            <div className="inline-flex items-center gap-4 rounded border border-outline-variant/30 bg-surface px-4 py-2 font-mono text-xs text-on-secondary-container">
-              <span>user: demo</span>
-              <span>pass: demo</span>
-            </div>
+            <p className="text-xs text-on-surface-variant">
+              For demo access details, please check the README.md.
+            </p>
           </div>
         </Card>
       </div>

@@ -195,7 +195,7 @@ export const nodes = [
       "nodeId": "graphqlResponseNode",
       "values": {
         "nodeName": "API Response",
-        "outputMapping": "{\n  \"sql\": \"{{codeNode_validate.output.safeSql}}\",\n  \"explanation\": \"{{LLMNode_explain.output.generatedResponse}}\",\n  \"isSafe\": \"{{codeNode_validate.output.isSafe}}\",\n  \"results\": \"{{mssqlNode_execute.output}}\",\n  \"error\": \"{{codeNode_validate.output.error}}\"\n}"
+        "outputMapping": "{{codeNode_aggregate.output}}"
       }
     }
   }

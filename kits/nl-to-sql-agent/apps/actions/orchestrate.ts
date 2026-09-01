@@ -190,7 +190,9 @@ export async function executeFlow(
   }
 
   try {
-    console.log("Executing NL-to-SQL flow with question:", input.question);
+    console.log("Executing NL-to-SQL flow", {
+      questionLength: input.question.length,
+    });
 
     const resData = await executeLamaticFlow(NL_TO_SQL_FLOW_ID, {
       question: input.question,
@@ -231,7 +233,9 @@ export async function executeFlow(
       data: normalized,
     };
   } catch (error) {
-    console.error("Flow execution error:", error);
+    console.error("NL-to-SQL flow execution failed", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
 
     let errorMessage = "Unknown error occurred";
     if (error instanceof Error) {
