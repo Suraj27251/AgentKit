@@ -6,10 +6,14 @@ test.describe('Queryline E2E Tests', () => {
     await page.goto('/login');
   });
 
-  test('should login with demo credentials', async ({ page }) => {
-    // Fill in the login form
-    await page.fill('input[name="username"]', 'demo');
-    await page.fill('input[name="password"]', 'demo');
+  test('should login with configured demo credentials', async ({ page }) => {
+    // Use environment variables for demo credentials
+    const demoUsername = process.env.DEMO_USERNAME || 'demo-user';
+    const demoPassword = process.env.DEMO_PASSWORD || 'demo-pass';
+
+    // Fill in the login form with configured credentials
+    await page.fill('input[name="username"]', demoUsername);
+    await page.fill('input[name="password"]', demoPassword);
 
     // Submit the form
     await page.click('button[type="submit"]');
@@ -32,9 +36,12 @@ test.describe('Queryline E2E Tests', () => {
   });
 
   test('should allow asking a question after login', async ({ page }) => {
-    // Login first
-    await page.fill('input[name="username"]', 'demo');
-    await page.fill('input[name="password"]', 'demo');
+    // Login first with configured credentials
+    const demoUsername = process.env.DEMO_USERNAME || 'demo-user';
+    const demoPassword = process.env.DEMO_PASSWORD || 'demo-pass';
+
+    await page.fill('input[name="username"]', demoUsername);
+    await page.fill('input[name="password"]', demoPassword);
     await page.click('button[type="submit"]');
 
     // Wait for the main NL-to-SQL UI
@@ -52,9 +59,12 @@ test.describe('Queryline E2E Tests', () => {
   });
 
   test('should persist theme preference', async ({ page }) => {
-    // Login first
-    await page.fill('input[name="username"]', 'demo');
-    await page.fill('input[name="password"]', 'demo');
+    // Login first with configured credentials
+    const demoUsername = process.env.DEMO_USERNAME || 'demo-user';
+    const demoPassword = process.env.DEMO_PASSWORD || 'demo-pass';
+
+    await page.fill('input[name="username"]', demoUsername);
+    await page.fill('input[name="password"]', demoPassword);
     await page.click('button[type="submit"]');
 
     await expect(page.locator('text=Ask your database a question')).toBeVisible();

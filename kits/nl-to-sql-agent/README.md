@@ -87,7 +87,7 @@ flowchart LR
 
 1. **API Request** (trigger) — receives the user's question.
 2. **Generate SQL** (LLM node) — converts the question into a single T-SQL `SELECT`, grounded in the database schema.
-3. **Validate SQL** (code node) — must start with `SELECT`, no multiple statements, no write/DDL keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`). Appends `TOP 1000` if no `TOP` clause is present.
+3. **Validate SQL** (code node) — must start with `SELECT`, no multiple statements, no write/DDL keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`). Automatically enforces a maximum result limit of 1000 rows by normalizing `TOP` clauses: adds `TOP 1000` if no limit is specified, or caps existing limits to 1000 if they exceed it.
 4. **Is SQL safe?** (condition node) — routes to execution or straight to an error response.
 5. **Execute** (mssql node) — runs the validated query, safe branch only.
 6. **Explain SQL** (LLM node) — plain-language explanation of the query.
@@ -156,7 +156,7 @@ graph TD
 | 🖥️ **Microsoft SQL Server support** | Dedicated `mssqlNode` execution, with `TOP` row limiting |
 | 🛡️ **SQL safety validation** | Blocks writes, DDL, and multi-statement queries — `SELECT`-only |
 | 🔒 **Read-only by design** | Anything that isn't a single `SELECT` is flagged unsafe and never runs |
-| 📏 **Result-size enforcement** | Auto-adds `TOP 1000` when no limit is specified |
+| 📏 **Result-size enforcement** | Automatically enforces a maximum of 1000 rows: adds `TOP 1000` when no limit is specified, or caps any `TOP` value exceeding 1000 |
 | 📊 **Structured results** | SQL, explanation, safety flag, rows, and row count returned together |
 | 🧾 **Plain-language explanations** | Every query is explained in non-technical terms |
 | 💬 **Chat-style web UI** | Next.js app with a table view for results |
@@ -233,8 +233,9 @@ Copy `apps/.env.example` to `apps/.env.local` and fill in the values. **Never co
 | `LAMATIC_API_KEY` | Secret API key | `your_lamatic_api_key` |
 | `NL_TO_SQL_FLOW_ID` | Deployed Queryline flow ID | `your_deployed_flow_id` |
 | `SESSION_PASSWORD` | ≥32-char secret for `iron-session` cookie signing | `a_complex_password_at_least_32_chars_long!!` |
-| `DEMO_USERNAME` | Demo login username | `demo` |
-| `DEMO_PASSWORD` | Demo login password | `demo` |
+| `DEMO_AUTH_ENABLED` | Enable demo authentication (must be explicitly `"true"`) | `true` |
+| `DEMO_USERNAME` | Demo login username (required when `DEMO_AUTH_ENABLED=true`) | `your-demo-username` |
+| `DEMO_PASSWORD` | Demo login password (required when `DEMO_AUTH_ENABLED=true`) | `your-demo-password` |
 | `MSSQL_SERVER` | SQL Server host (used by the flow, not the app) | `your_azure_sql_server.database.windows.net` |
 | `MSSQL_PORT` | SQL Server port | `1433` |
 | `MSSQL_DATABASE` | Database name | `your_azure_sql_database` |
@@ -244,9 +245,32 @@ Copy `apps/.env.example` to `apps/.env.local` and fill in the values. **Never co
 
 ---
 
-## 🔐 Authentication & Production Notes
+## 🔐 Demo Access & Authentication
 
-The current login uses **static demo credentials** (`demo` / `demo`) — fine for local development, **not for production**.
+### Local Development
+
+Demo authentication is **explicitly configured** and **disabled by default** for security.
+
+To enable demo login locally:
+
+1. Copy `apps/.env.example` to `apps/.env.local`.
+2. Set the three demo authentication variables:
+
+```env
+DEMO_AUTH_ENABLED=true
+DEMO_USERNAME=your-demo-username
+DEMO_PASSWORD=your-demo-password
+```
+
+Replace `your-demo-username` and `your-demo-password` with your chosen demo credentials. These are local-only for development and testing.
+
+3. Run the app with `npm run dev`.
+
+**Security note:** Demo authentication requires **explicit configuration**. The application does not fall back to hardcoded credentials like `demo/demo`. If `DEMO_AUTH_ENABLED` is not set to `"true"`, or if username/password are missing, authentication will fail closed.
+
+### Production & Enterprise
+
+The current login uses **static demo credentials** — fine for local development and small deployments, **not recommended for production**.
 
 **Recommended path to production:** replace it with an OTP flow built in Lamatic:
 
@@ -267,13 +291,13 @@ cd kits/nl-to-sql-agent/apps
 npm install
 ```
 
-Create `.env.local` from `apps/.env.example` and set your Lamatic credentials + deployed flow ID.
+Create `.env.local` from `apps/.env.example` and set your Lamatic credentials + deployed flow ID + demo authentication config.
 
 ```bash
 npm run dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)**, sign in with `demo` / `demo`, and ask something like *"Show me all users."*
+Open **[http://localhost:3000](http://localhost:3000)**, sign in with your configured demo username and password, and ask something like *"Show me all users."*
 
 | Script | Purpose |
 |---|---|
