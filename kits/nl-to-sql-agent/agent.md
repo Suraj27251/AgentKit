@@ -30,7 +30,7 @@ Step-by-step walkthrough of the node chain:
    - Outputs `{ safeSql, isSafe, error?, limitCapped? }`.
 4. **Is SQL Safe? (conditionNode)** — routes based on `isSafe`:
    - **Safe** → continues to Execute SQL.
-   - **Unsafe** → skips execution; the unsafe `rawSql` and the validation error flow to aggregation.
+   - **Unsafe** → skips execution; the unsafe `originalSql` and the validation error flow to the aggregation node, which returns a structured blocked response (no results, no executable SQL).
 5. **Execute SQL (mssqlNode)** — runs the validated `safeSql` against Microsoft SQL Server (only reached when the query is safe).
 6. **Explain SQL (LLMNode)** — produces a plain-language explanation of what the query does.
 7. **Aggregate Response (codeNode)** — combines the SQL, explanation, safety flag, results, row count, and any error into one structured response.

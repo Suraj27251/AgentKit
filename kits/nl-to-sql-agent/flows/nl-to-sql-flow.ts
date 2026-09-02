@@ -227,13 +227,26 @@ export const edges = [
     "type": "defaultEdge"
   },
   {
-    "id": "conditionNode_safe-mssqlNode_execute",
+    "id": "conditionNode_safe-addNode_safe",
     "source": "conditionNode_safe",
     "target": "mssqlNode_execute",
     "sourceHandle": "bottom",
     "targetHandle": "top",
-    "type": "defaultEdge",
-    "label": "Safe"
+    "data": {
+      "condition": "Safe"
+    },
+    "type": "conditionEdge"
+  },
+  {
+    "id": "conditionNode_safe-addNode_unsafe",
+    "source": "conditionNode_safe",
+    "target": "codeNode_aggregate",
+    "sourceHandle": "bottom",
+    "targetHandle": "top",
+    "data": {
+      "condition": "Unsafe"
+    },
+    "type": "conditionEdge"
   },
   {
     "id": "mssqlNode_execute-LLMNode_explain",
