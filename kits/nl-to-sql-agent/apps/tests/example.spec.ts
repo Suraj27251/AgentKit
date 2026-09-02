@@ -137,3 +137,35 @@ test.describe('Queryline E2E Tests', () => {
     ).toBe(true);
   });
 });
+
+// Mobile History navigation (Batch E1, Issue #16).
+// NOTE: These run against baseURL http://localhost:3002 (playwright.config.ts).
+// They cannot execute until Issue #13's port mismatch is resolved, but they
+// document the required mobile behaviour and run once that tooling is fixed.
+test.describe('Mobile navigation (Mobile History reachability)', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+  });
+
+  test('mobile user can open the menu and navigate to History', async ({ page }) => {
+    await page.fill('input[name="username"]', process.env.DEMO_USERNAME || 'demo-user');
+    await page.fill('input[name="password"]', process.env.DEMO_PASSWORD || 'demo-pass');
+    await page.click('button[type="submit"]');
+    await expect(page.locator('text=Ask your database a question')).toBeVisible();
+
+    // Desktop nav hidden on mobile viewport.
+    await expect(page.locator('nav.md\\:flex')).toHaveCount(0);
+
+    // Open the accessible mobile menu.
+    await page.click('button[aria-label="Open navigation"]');
+    await expect(page.locator('nav[aria-label="Mobile navigation"]')).toBeVisible();
+    await expect(page.locator('nav[aria-label="Mobile navigation"] >> text=History')).toBeVisible();
+
+    // Navigate via the mobile menu.
+    await page.click('nav[aria-label="Mobile navigation"] >> text=History');
+    await expect(page).toHaveURL('/history');
+    await expect(page.locator('text=Query History')).toBeVisible();
+  });
+});

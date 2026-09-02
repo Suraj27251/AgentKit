@@ -77,11 +77,14 @@ function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Set question from URL parameter on mount
+  // Set question from URL parameter on mount. useSearchParams().get() already
+  // percent-decodes the value (a single decode boundary), so it must be used
+  // directly; decoding again would corrupt questions containing '%' and could
+  // throw URIError.
   useEffect(() => {
     const paramQuestion = searchParams.get("question");
     if (paramQuestion) {
-      setQuestion(decodeURIComponent(paramQuestion));
+      setQuestion(paramQuestion);
     }
   }, [searchParams]);
 
@@ -161,6 +164,10 @@ function HomePageContent() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    // Release the temporary object URL. The browser begins consuming the URL
+    // asynchronously, so revoke on the next tick to avoid cancelling the
+    // download before it has started.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const handleDownloadJSON = () => {
@@ -178,6 +185,9 @@ function HomePageContent() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    // Release the temporary object URL on the next tick so the browser has
+    // begun the download before revocation.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const filteredResults = useMemo(() => {
