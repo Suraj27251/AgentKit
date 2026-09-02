@@ -23,7 +23,7 @@ Step-by-step walkthrough of the node chain:
 3. **Validate SQL (codeNode)** — checks the generated SQL for safety:
    - Must start with `SELECT`.
    - Must not contain multiple statements.
-   - Must not contain write/DDL keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`).
+   - Must not contain write/DDL keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`, `EXEC`, `EXECUTE`).
    - Automatically enforces a maximum result limit of 1000 rows by normalizing `TOP` clauses:
      - Adds `TOP 1000` if no `TOP` clause is present.
      - Caps any `TOP` value exceeding 1000 to `TOP 1000`.
@@ -43,14 +43,16 @@ Use this flow whenever a user supplies a natural language question about a Micro
 The flow returns a JSON object with these fields:
 
 - `sql` — the validated and normalized `SELECT` query (with `TOP` enforced to maximum 1000).
+- `originalSql` — the SQL as generated, before `TOP` normalization (present when validation ran).
 - `explanation` — plain-language explanation of what the query does.
 - `isSafe` — `"true"` or `"false"` indicating whether the query passed safety validation.
 - `results` — array of rows returned when the query is safe and execution succeeds.
 - `rowCount` — number of rows returned.
 - `error` — error message from any step that fails.
 - `warnings` — array of warning messages (e.g., when result limit was capped or no results returned).
+- `limitCapped` — `true` when the `TOP` value was reduced to 1000, otherwise `false`.
 
-The Next.js app consumes this contract in `apps/actions/orchestrate.ts` and additionally derives a summary, insights, suggestions, and follow-up questions on the client.
+The Next.js app consumes this contract in `apps/actions/orchestrate.ts`, which normalizes the flow fields and derives the `summary`, `insights`, `suggestions`, and `followUpQuestions` fields for the UI.
 
 #### Dependencies
 - **Lamatic runtime & project configuration** — `LAMATIC_API_URL`, `LAMATIC_PROJECT_ID`, `LAMATIC_API_KEY`.
@@ -63,7 +65,7 @@ The Next.js app consumes this contract in `apps/actions/orchestrate.ts` and addi
 
 ## Guardrails
 - **Prohibited tasks**
-  - Must not generate or execute write/DDL operations (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`).
+  - Must not generate or execute write/DDL operations (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`, `EXEC`, `EXECUTE`).
   - Must not execute multiple SQL statements in a single request.
   - Query results are automatically limited to a maximum of 1000 rows (via normalized `TOP` clauses).
 - **Input constraints**
@@ -94,17 +96,18 @@ The Next.js app consumes this contract in `apps/actions/orchestrate.ts` and addi
 - `LAMATIC_API_KEY` — API key for the Lamatic project.
 - `NL_TO_SQL_FLOW_ID` — Deployed Flow ID for `nl-to-sql-flow`, obtained from Lamatic Studio after deployment.
 - `SESSION_PASSWORD` — Password (≥ 32 chars) used by `iron-session` to sign the session cookie.
-- `DEMO_USERNAME` / `DEMO_PASSWORD` — Demo credentials for the local dev login (default `demo` / `demo`); do not ship as-is to production.
+- `DEMO_AUTH_ENABLED` — When set to `"true"`, enables the built-in demo login using `DEMO_USERNAME` / `DEMO_PASSWORD`. Demo authentication is disabled by default (fail-closed); there are no hardcoded default credentials.
+- `DEMO_USERNAME` / `DEMO_PASSWORD` — Demo credentials for the local dev login (only honored when `DEMO_AUTH_ENABLED=true`); do not ship real credentials.
 - `MSSQL_SERVER`, `MSSQL_PORT`, `MSSQL_DATABASE`, `MSSQL_USER` — Optional SQL Server connection hints for the flow's node (credentials are typically stored in Lamatic Studio).
 
 ## Quickstart
 1. In Lamatic Studio, create a project, deploy the `nl-to-sql-flow` ("Queryline"), and copy the resulting Flow ID.
-2. In `apps/`, copy `.env.example` to `.env.local` and set `LAMATIC_API_URL`, `LAMATIC_PROJECT_ID`, `LAMATIC_API_KEY`, and `NL_TO_SQL_FLOW_ID`.
+2. In `apps/`, copy `.env.example` to `.env.local` and set `LAMATIC_API_URL`, `LAMATIC_PROJECT_ID`, `LAMATIC_API_KEY`, and `NL_TO_SQL_FLOW_ID`. To use the built-in demo login, also set `DEMO_AUTH_ENABLED=true` along with `DEMO_USERNAME` and `DEMO_PASSWORD`.
 3. Configure the Microsoft SQL Server connection in Lamatic Studio for the `mssqlNode` (a read-only user is recommended).
 4. Install and run the app:
    - `npm install`
    - `npm run dev`
-5. Open the app, sign in with the demo credentials (`demo` / `demo`), and ask a question (e.g. "How many customers are active?"). Verify you receive a safe read-only `SELECT` query, an explanation, and (when connected) query results.
+5. Open the app, sign in with the configured demo username and password, and ask a question (e.g. "How many customers are active?"). Verify you receive a safe read-only `SELECT` query, an explanation, and (when connected) query results.
 
 ## Common Failure Modes
 

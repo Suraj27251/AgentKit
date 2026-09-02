@@ -87,11 +87,11 @@ flowchart LR
 
 1. **API Request** (trigger) — receives the user's question.
 2. **Generate SQL** (LLM node) — converts the question into a single T-SQL `SELECT`, grounded in the database schema.
-3. **Validate SQL** (code node) — must start with `SELECT`, no multiple statements, no write/DDL keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`). Automatically enforces a maximum result limit of 1000 rows by normalizing `TOP` clauses: adds `TOP 1000` if no limit is specified, or caps existing limits to 1000 if they exceed it.
+3. **Validate SQL** (code node) — must start with `SELECT`, no multiple statements, no write/DDL keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`, `EXEC`, `EXECUTE`). Automatically enforces a maximum result limit of 1000 rows by normalizing `TOP` clauses: adds `TOP 1000` if no limit is specified, or caps existing limits to 1000 if they exceed it.
 4. **Is SQL safe?** (condition node) — routes to execution or straight to an error response.
 5. **Execute** (mssql node) — runs the validated query, safe branch only.
 6. **Explain SQL** (LLM node) — plain-language explanation of the query.
-7. **Aggregate Response** (code node) — combines SQL, explanation, safety flag, rows, row count, and any error.
+7. **Aggregate Response** (code node) — combines SQL, explanation, safety flag, rows, row count, warnings, and any error.
 8. **API Response** — structured result returned to the Next.js app.
 
 ---
@@ -391,10 +391,10 @@ flowchart TD
     style U fill:#FEF3C7,color:#92400E
 ```
 
-**Key:**  
-- ★☆ Low effort (mainly UI/orchestrator tweaks)  
-- ★★ Already implemented (history, copy/export, filtering)  
-- ★☆☆ Medium effort (may require new nodes or slight flow changes)  
+**Key:**
+- ★☆ Low effort (mainly UI/orchestrator tweaks)
+- ★★ Already implemented (history, copy/export, filtering)
+- ★☆☆ Medium effort (may require new nodes or slight flow changes)
 
 These extensions can be adopted incrementally, each building on the solid, safety‑first foundation already present in Queryline. Happy building! 🚀
 

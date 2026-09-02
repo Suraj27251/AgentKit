@@ -1,4 +1,19 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+async function login(page: Page) {
+  // Use environment variables for demo credentials
+  const demoUsername = process.env.DEMO_USERNAME || 'demo-user';
+  const demoPassword = process.env.DEMO_PASSWORD || 'demo-pass';
+
+  await page.goto('/login');
+  await page.fill('input[name="username"]', demoUsername);
+  await page.fill('input[name="password"]', demoPassword);
+  await page.click('button[type="submit"]');
+
+  // Should redirect to home page and show the main NL-to-SQL UI
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('text=Ask your database a question')).toBeVisible();
+}
 
 test.describe('Queryline E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -80,5 +95,45 @@ test.describe('Queryline E2E Tests', () => {
     // Should still be in dark mode (dark class on html element)
     const htmlClass = await page.evaluate(() => document.documentElement.className);
     expect(htmlClass).toContain('dark');
+  });
+
+  test('system theme follows the light OS preference', async ({ page }) => {
+    // With no stored preference, the app resolves "system" from the OS.
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/login');
+
+    const hasDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+    expect(hasDark).toBe(false);
+  });
+
+  test('system theme follows the dark OS preference', async ({ page }) => {
+    // emulateMedia must be set before navigation so the pre-hydration script
+    // in app/layout.tsx can resolve prefers-color-scheme.
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/login');
+
+    const hasDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+    expect(hasDark).toBe(true);
+  });
+
+  test('system theme live-updates when the OS preference changes', async ({ page }) => {
+    await login(page);
+
+    // Prefer the OS theme, then reload so the toggle re-applies it.
+    await page.evaluate(() => localStorage.setItem('nl-to-sql-theme', 'system'));
+    await page.reload();
+    await expect(page.locator('text=Ask your database a question')).toBeVisible();
+
+    // Light OS preference -> no dark class.
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect.poll(() =>
+      page.evaluate(() => document.documentElement.classList.contains('dark'))
+    ).toBe(false);
+
+    // Switching the OS preference to dark must apply dark without a reload.
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect.poll(() =>
+      page.evaluate(() => document.documentElement.classList.contains('dark'))
+    ).toBe(true);
   });
 });
