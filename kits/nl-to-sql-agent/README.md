@@ -305,6 +305,17 @@ Open **[http://localhost:3000](http://localhost:3000)**, sign in with your confi
 | `npm run build` | Create an optimized production build |
 | `npm run start` | Serve the production build |
 | `npm run lint` | Run ESLint |
+| `npm run test:e2e` | Run the Playwright E2E suite (starts its own dev server on `localhost:3000`) |
+
+### E2E testing
+
+Playwright automatically starts the app (via the `webServer` config) on `http://localhost:3000`, so no separate `npm run dev` is needed. Run the suite with:
+
+```bash
+npm run test:e2e
+```
+
+Locally, an already-running server on port `3000` is reused; in CI a fresh server is always started. If Playwright's browser binaries are not yet installed, run `npx playwright install chromium` once.
 
 ---
 
