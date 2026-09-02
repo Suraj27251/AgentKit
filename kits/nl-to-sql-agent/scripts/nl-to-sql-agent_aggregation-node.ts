@@ -19,6 +19,24 @@ function aggregateResponse() {
   const limitCapped = validationOutput.limitCapped || false;
   const error = validationOutput.error || '';
 
+  // Unsafe path: the query was rejected, so the MSSQL execution node and the
+  // explanation node never ran. Return a structured blocked response using the
+  // validator's message. No results, no executable SQL, and no post-execution
+  // warnings (which only make sense for safe queries that ran).
+  if (!isSafe) {
+    return {
+      sql: '',
+      originalSql: originalSql,
+      explanation: '',
+      isSafe: 'false',
+      results: [],
+      rowCount: 0,
+      error: error || 'The query was blocked because it was not a safe, read-only SQL query.',
+      warnings: [],
+      limitCapped: false,
+    };
+  }
+
   // Parse results
   let results = [];
   let rowCount = 0;
