@@ -8,20 +8,42 @@ export interface SessionData {
   isDemo?: boolean;
 }
 
-const sessionOptions = {
-  password: process.env.SESSION_PASSWORD || 'a_complex_password_at_least_32_chars_long!!',
-  cookieName: 'nl-to-sql-session',
-  cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    path: '/',
-  },
-};
+/**
+ * Session signing secret. It must be explicitly configured; there is NO
+ * public fallback. A missing secret fails closed so sessions can never be
+ * forged with a predictable default value.
+ */
+function getSessionPassword(): string {
+  const password = process.env.SESSION_PASSWORD;
+  if (!password) {
+    throw new Error(
+      "SESSION_PASSWORD is not set. Set a strong secret (at least 32 characters) in your environment configuration."
+    );
+  }
+  if (password.length < 32) {
+    throw new Error(
+      "SESSION_PASSWORD is too short. Use a strong secret of at least 32 characters."
+    );
+  }
+  return password;
+}
+
+function getSessionOptions() {
+  return {
+    password: getSessionPassword(),
+    cookieName: 'nl-to-sql-session',
+    cookieOptions: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'lax' as const,
+      path: '/',
+    },
+  };
+}
 
 export async function getSession(): Promise<SessionData> {
   const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+  const session = await getIronSession<SessionData>(cookieStore, getSessionOptions());
 
   if (!session || !session.isLoggedIn) {
     return { isLoggedIn: false };
@@ -36,7 +58,7 @@ export async function getSession(): Promise<SessionData> {
 
 export async function setSession(sessionData: SessionData): Promise<void> {
   const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+  const session = await getIronSession<SessionData>(cookieStore, getSessionOptions());
 
   Object.assign(session, sessionData);
   await session.save();
@@ -44,6 +66,6 @@ export async function setSession(sessionData: SessionData): Promise<void> {
 
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+  const session = await getIronSession<SessionData>(cookieStore, getSessionOptions());
   session.destroy();
 }

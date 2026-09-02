@@ -63,6 +63,18 @@ function normalizeTopClause(sql) {
 }
 
 /**
+ * Remove quoted string literals and comments so keyword checks do not match
+ * text that lives inside data values or comments.
+ */
+function stripQuotedStringsAndComments(sql) {
+  return sql
+    .replace(/'(?:[^']|'')*'/g, '')
+    .replace(/"(?:[^"]|"")*"/g, '')
+    .replace(/--[^\n]*/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/**
  * Validate that SQL is safe
  */
 function validateSqlSafety(sql) {
@@ -89,6 +101,32 @@ function validateSqlSafety(sql) {
     return {
       isSafe: false,
       error: 'SQL must start with SELECT. Only read-only queries are allowed.',
+    };
+  }
+
+  const stripped = stripQuotedStringsAndComments(trimmedSql);
+
+  // Block SELECT ... INTO (creates/populates a table - not read-only)
+  if (/\bSELECT\b[\s\S]*?\bINTO\b/i.test(stripped)) {
+    return {
+      isSafe: false,
+      error: 'SQL contains SELECT INTO, which creates or populates a table. Only read-only SELECT queries are allowed.',
+    };
+  }
+
+  // Block TOP ... PERCENT
+  if (/\bTOP\s+\(?\d+\)?\s+PERCENT\b/i.test(stripped)) {
+    return {
+      isSafe: false,
+      error: 'TOP PERCENT is not allowed because it can bypass the maximum result limit.',
+    };
+  }
+
+  // Block TOP ... WITH TIES
+  if (/\bTOP\s+\(?\d+\)?\s+WITH\s+TIES\b/i.test(stripped)) {
+    return {
+      isSafe: false,
+      error: 'TOP WITH TIES is not allowed because it can return more than the maximum result limit.',
     };
   }
 
@@ -243,6 +281,63 @@ const testCases = [
     input: 'CREATE TABLE Customers (id INT, name NVARCHAR(100))',
     expectedSafe: false,
     expectedErrorPattern: /write or DDL/i,
+  },
+  // SELECT INTO (table creation, not read-only)
+  {
+    name: 'SELECT INTO statement',
+    input: 'SELECT * INTO NewTable FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /SELECT INTO/i,
+  },
+  {
+    name: 'SELECT INTO specific columns',
+    input: 'SELECT CustomerId, Name INTO CustomerBackup FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /SELECT INTO/i,
+  },
+  {
+    name: 'SELECT INTO lower case',
+    input: 'select * into NewTable from Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /SELECT INTO/i,
+  },
+  // TOP PERCENT bypass
+  {
+    name: 'TOP 100 PERCENT',
+    input: 'SELECT TOP 100 PERCENT * FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /TOP PERCENT/i,
+  },
+  {
+    name: 'TOP PERCENT lower case',
+    input: 'select top 100 percent * from Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /TOP PERCENT/i,
+  },
+  {
+    name: 'TOP PERCENT parenthesized',
+    input: 'SELECT TOP (100) PERCENT * FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /TOP PERCENT/i,
+  },
+  // TOP WITH TIES bypass
+  {
+    name: 'TOP 1000 WITH TIES',
+    input: 'SELECT TOP 1000 WITH TIES * FROM Customers ORDER BY CustomerId',
+    expectedSafe: false,
+    expectedErrorPattern: /WITH TIES/i,
+  },
+  {
+    name: 'TOP WITH TIES smaller value',
+    input: 'SELECT TOP 100 WITH TIES * FROM Customers ORDER BY CustomerId',
+    expectedSafe: false,
+    expectedErrorPattern: /WITH TIES/i,
+  },
+  {
+    name: 'TOP WITH TIES lower case + paren',
+    input: 'select top (1000) with ties * from Customers order by CustomerId',
+    expectedSafe: false,
+    expectedErrorPattern: /WITH TIES/i,
   },
   {
     name: 'Empty SQL',

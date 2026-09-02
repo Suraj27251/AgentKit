@@ -31,6 +31,45 @@ const LAMATIC_API_URL = process.env.LAMATIC_API_URL;
 const LAMATIC_API_KEY = process.env.LAMATIC_API_KEY;
 const LAMATIC_PROJECT_ID = process.env.LAMATIC_PROJECT_ID;
 
+/**
+ * Validate the Lamatic endpoint. Only HTTPS is allowed for remote hosts so
+ * API credentials are never sent in cleartext. Plain HTTP is permitted only
+ * for local development endpoints (localhost / 127.0.0.1).
+ */
+function validateLamaticEndpoint(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(
+      "Invalid LAMATIC_API_URL. Please set a valid https:// Lamatic API URL."
+    );
+  }
+
+  if (parsed.protocol === "https:") {
+    return;
+  }
+
+  if (parsed.protocol === "http:") {
+    const isLocal =
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1";
+    if (isLocal) {
+      return;
+    }
+    throw new Error(
+      "Insecure LAMATIC_API_URL. Lamatic credentials must be sent over HTTPS; remote http:// endpoints are not allowed."
+    );
+  }
+
+  throw new Error(
+    "Invalid LAMATIC_API_URL protocol. Only https:// (or http://localhost for development) is supported."
+  );
+}
+
+validateLamaticEndpoint(LAMATIC_API_URL);
+
 export async function executeLamaticFlow(
   flowId: string,
   payload: Record<string, unknown>
