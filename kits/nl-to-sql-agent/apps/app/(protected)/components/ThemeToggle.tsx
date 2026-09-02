@@ -20,10 +20,18 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const applyTheme = () => {
+      const useDark = theme === 'dark' || (theme === 'system' && media.matches);
+      root.classList.toggle('dark', useDark);
+    };
+
+    applyTheme();
+
+    if (theme === 'system') {
+      media.addEventListener('change', applyTheme);
+      return () => media.removeEventListener('change', applyTheme);
     }
   }, [theme]);
 
