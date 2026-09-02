@@ -4,6 +4,8 @@ import { cookies } from 'next/headers';
 export interface SessionData {
   userId?: string;
   isLoggedIn: boolean;
+  /** Marks a session as a restricted demo session (limited to approved questions). */
+  isDemo?: boolean;
 }
 
 const sessionOptions = {
@@ -28,6 +30,7 @@ export async function getSession(): Promise<SessionData> {
   return {
     isLoggedIn: true,
     userId: session.userId,
+    isDemo: session.isDemo === true,
   };
 }
 

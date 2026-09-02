@@ -2,6 +2,10 @@
 
 import { executeLamaticFlow, NL_TO_SQL_FLOW_ID } from "@/lib/lamatic-client";
 import { getSession } from "@/lib/session";
+import { isApprovedDemoQuestion } from "@/lib/demo-questions";
+
+const DEMO_RESTRICTION_MESSAGE =
+  "Demo account restriction: This public demo supports the predefined example queries shown in the Workspace. Please select one of the available demo questions to see the full NL-to-SQL flow.";
 
 export type NLToSQLResponse = {
   sql: string;
@@ -144,6 +148,34 @@ function normalizeLamaticResponse(rawResult: any, question: string): NLToSQLResp
   };
 }
 
+function mockResponse(): { success: true; data: NLToSQLResponse } {
+  return {
+    success: true,
+    data: {
+      sql: "SELECT TOP 10 * FROM users;",
+      explanation: "This query selects all columns from the users table and limits the results to 10 rows.",
+      summary: "The query returned 2 rows. The dataset includes 3 fields, with a sample value of 1.",
+      insights: [
+        { title: "Result set loaded", detail: "The query returned 2 records and the data is ready for analysis." }
+      ],
+      suggestions: [
+        { action: "Review the data distribution", reason: "Check whether the returned rows match the expected segment or time window." }
+      ],
+      followUpQuestions: [
+        "Would you like to break this down by another column?"
+      ],
+      isSafe: "true",
+      results: [
+        { id: 1, name: "John Doe", email: "john@example.com" },
+        { id: 2, name: "Jane Smith", email: "jane@example.com" }
+      ],
+      rowCount: 2,
+      error: "",
+      warnings: []
+    }
+  };
+}
+
 export async function executeFlow(
   input: { question: string }
 ): Promise<{
@@ -151,42 +183,30 @@ export async function executeFlow(
   data?: NLToSQLResponse;
   error?: string;
 }> {
-  // Mock mode for local testing
-  if (process.env.MOCK_LAMATIC === "true") {
-    await new Promise(resolve => setTimeout(resolve, 500));
+  const session = await getSession();
+  const isDemo = session.isLoggedIn && session.isDemo === true;
+
+  // Restricted demo sessions may only run the approved demo questions.
+  // Enforced server-side, before the mock branch or the real flow, so an
+  // unsupported question never touches Lamatic nor receives unrelated data.
+  if (isDemo && !isApprovedDemoQuestion(input.question)) {
     return {
-      success: true,
-      data: {
-        sql: "SELECT TOP 10 * FROM users;",
-        explanation: "This query selects all columns from the users table and limits the results to 10 rows.",
-        summary: "The query returned 2 rows. The dataset includes 3 fields, with a sample value of 1.",
-        insights: [
-          { title: "Result set loaded", detail: "The query returned 2 records and the data is ready for analysis." }
-        ],
-        suggestions: [
-          { action: "Review the data distribution", reason: "Check whether the returned rows match the expected segment or time window." }
-        ],
-        followUpQuestions: [
-          "Would you like to break this down by another column?"
-        ],
-        isSafe: "true",
-        results: [
-          { id: 1, name: "John Doe", email: "john@example.com" },
-          { id: 2, name: "Jane Smith", email: "jane@example.com" }
-        ],
-        rowCount: 2,
-        error: "",
-        warnings: []
-      }
+      success: false,
+      error: DEMO_RESTRICTION_MESSAGE,
     };
   }
 
-  const session = await getSession();
   if (!session.isLoggedIn) {
     return {
       success: false,
       error: "Unauthorized: Please log in to use this service.",
     };
+  }
+
+  // Mock mode for local/offline development testing.
+  if (process.env.MOCK_LAMATIC === "true") {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return mockResponse();
   }
 
   try {
@@ -243,7 +263,19 @@ export async function executeFlow(
       if (error.message.includes("fetch failed")) {
         errorMessage = "Network error: Unable to connect to the Lamatic service. Please check your internet connection.";
       } else if (error.message.includes("API key") || error.message.includes("401") || error.message.includes("403")) {
-        errorMessage = "Authentication error: Please check your LAMATIC_API_KEY configuration.";
+        // Surface the raw HTTP status/body from Lamatic so the exact reason
+        // (invalid key, forbidden project, expiry, quota) is visible instead
+        // of a generic message. Includes no secret material.
+        const httpMatch = error.message.match(
+          /Lamatic API error \((\d+)\):\s*([\s\S]*)/
+        );
+        if (httpMatch) {
+          const [, status, body] = httpMatch;
+          const trimmedBody = body.trim().slice(0, 800);
+          errorMessage = `Lamatic API rejected the request (status ${status}): ${trimmedBody}`;
+        } else {
+          errorMessage = `Authentication error (${error.message}): Please check your LAMATIC_API_KEY configuration.`;
+        }
       }
     }
 
