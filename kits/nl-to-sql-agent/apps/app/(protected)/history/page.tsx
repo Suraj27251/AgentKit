@@ -8,7 +8,7 @@ import {
   ArrowLeft, Star, Trash2, Copy, Search, Play, CheckCircle2,
   CircleAlert, ShieldCheck, ShieldAlert,
 } from "lucide-react";
-import { useHistory, HistoryEntry } from "@/lib/history";
+import { useHistory, HISTORY_STORAGE_KEY, HistoryEntry } from "@/lib/history";
 import { cn } from "@/lib/utils";
 
 export default function HistoryPage() {
@@ -20,7 +20,7 @@ export default function HistoryPage() {
 
   const handleDelete = (id: string) => {
     const updated = history.filter((e) => e.id !== id);
-    localStorage.setItem("nl-to-sql-history", JSON.stringify(updated));
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
     window.location.reload();
   };
 

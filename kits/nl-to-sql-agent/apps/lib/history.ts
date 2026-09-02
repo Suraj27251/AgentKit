@@ -10,18 +10,29 @@ export interface HistoryEntry {
   favorite: boolean;
 }
 
-const STORAGE_KEY = 'nl-to-sql-history';
+export const HISTORY_STORAGE_KEY = 'nl-to-sql-history';
+
+/**
+ * Removes the persisted NL-to-SQL history from browser storage. Used on logout
+ * so a later login/session on the same browser does not surface the previous
+ * session's history. Only this key is removed; unrelated keys (for example the
+ * theme preference) are left untouched.
+ */
+export function clearStoredHistory(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(HISTORY_STORAGE_KEY);
+}
 
 export function useHistory() {
   const [history, setHistory] = useState<HistoryEntry[]>(() => {
     if (typeof window === 'undefined') return [];
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
   });
 
   // Persist to localStorage whenever history changes
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
   }, [history]);
 
   const addEntry = useCallback((entry: Omit<HistoryEntry, 'id' | 'timestamp' | 'favorite'>) => {

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { executeFlow } from "@/actions/orchestrate";
 import { useHistory } from "@/lib/history";
+import { csvEscapeCell } from "@/lib/csv";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import SyntaxHighlighter from 'react-syntax-highlighter';
@@ -148,10 +149,7 @@ function HomePageContent() {
     const csvContent = [
       headers.join(","),
       ...result.results.map((row: Record<string, unknown>) =>
-        headers.map(h => {
-          const val = row[h];
-          return val === null || val === undefined ? "" : '"' + String(val).replace(/"/g, '""') + '"';
-        }).join(",")
+        headers.map(h => csvEscapeCell(row[h])).join(",")
       )
     ].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });

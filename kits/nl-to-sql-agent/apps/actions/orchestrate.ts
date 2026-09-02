@@ -2,7 +2,10 @@
 
 import { executeLamaticFlow, NL_TO_SQL_FLOW_ID } from "@/lib/lamatic-client";
 import { getSession } from "@/lib/session";
-import { isApprovedDemoQuestion } from "@/lib/demo-questions";
+import {
+  isApprovedDemoQuestion,
+  decideDemoRequest,
+} from "@/lib/demo-questions";
 
 const DEMO_RESTRICTION_MESSAGE =
   "Demo account restriction: This public demo supports the predefined example queries shown in the Workspace. Please select one of the available demo questions to see the full NL-to-SQL flow.";
@@ -185,11 +188,18 @@ export async function executeFlow(
 }> {
   const session = await getSession();
   const isDemo = session.isLoggedIn && session.isDemo === true;
+  const isApproved = isApprovedDemoQuestion(input.question);
 
   // Restricted demo sessions may only run the approved demo questions.
   // Enforced server-side, before the mock branch or the real flow, so an
   // unsupported question never touches Lamatic nor receives unrelated data.
-  if (isDemo && !isApprovedDemoQuestion(input.question)) {
+  const decision = decideDemoRequest({
+    isDemo,
+    isApproved,
+    mockEnabled: process.env.MOCK_LAMATIC === "true",
+  });
+
+  if (decision.kind === "blocked") {
     return {
       success: false,
       error: DEMO_RESTRICTION_MESSAGE,
@@ -203,8 +213,10 @@ export async function executeFlow(
     };
   }
 
-  // Mock mode for local/offline development testing.
-  if (process.env.MOCK_LAMATIC === "true") {
+  // Mock mode for local/offline development testing. Never applied to a
+  // restricted demo session, so an approved demo question always runs the real
+  // Lamatic flow and mock output can never masquerade as a real answer.
+  if (decision.kind === "mock") {
     await new Promise(resolve => setTimeout(resolve, 500));
     return mockResponse();
   }
