@@ -29,7 +29,7 @@ export async function login(formData: FormData) {
 
   if (username === demoUsername && password === demoPassword) {
     // Set the session
-    await setSession({ userId: username, isLoggedIn: true });
+    await setSession({ userId: username, isLoggedIn: true, isDemo: true });
 
     // Redirect to the home page
     redirect('/');
