@@ -1,9 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 
 async function login(page: Page) {
-  // Use environment variables for demo credentials
-  const demoUsername = process.env.DEMO_USERNAME || 'demo-user';
-  const demoPassword = process.env.DEMO_PASSWORD || 'demo-pass';
+  // Use the demo credentials that the app expects locally for E2E validation.
+  const demoUsername = process.env.DEMO_USERNAME || 'demo';
+  const demoPassword = process.env.DEMO_PASSWORD || 'demo';
 
   await page.goto('/login');
   await page.fill('input[name="username"]', demoUsername);
@@ -22,9 +22,9 @@ test.describe('Queryline E2E Tests', () => {
   });
 
   test('should login with configured demo credentials', async ({ page }) => {
-    // Use environment variables for demo credentials
-    const demoUsername = process.env.DEMO_USERNAME || 'demo-user';
-    const demoPassword = process.env.DEMO_PASSWORD || 'demo-pass';
+    // Use the same demo credentials configured for the E2E server.
+    const demoUsername = process.env.DEMO_USERNAME || 'demo';
+    const demoPassword = process.env.DEMO_PASSWORD || 'demo';
 
     // Fill in the login form with configured credentials
     await page.fill('input[name="username"]', demoUsername);
@@ -51,9 +51,9 @@ test.describe('Queryline E2E Tests', () => {
   });
 
   test('should allow asking a question after login', async ({ page }) => {
-    // Login first with configured credentials
-    const demoUsername = process.env.DEMO_USERNAME || 'demo-user';
-    const demoPassword = process.env.DEMO_PASSWORD || 'demo-pass';
+    // Login first with the configured demo credentials.
+    const demoUsername = process.env.DEMO_USERNAME || 'demo';
+    const demoPassword = process.env.DEMO_PASSWORD || 'demo';
 
     await page.fill('input[name="username"]', demoUsername);
     await page.fill('input[name="password"]', demoPassword);
@@ -74,9 +74,9 @@ test.describe('Queryline E2E Tests', () => {
   });
 
   test('should persist theme preference', async ({ page }) => {
-    // Login first with configured credentials
-    const demoUsername = process.env.DEMO_USERNAME || 'demo-user';
-    const demoPassword = process.env.DEMO_PASSWORD || 'demo-pass';
+    // Login first with the configured demo credentials.
+    const demoUsername = process.env.DEMO_USERNAME || 'demo';
+    const demoPassword = process.env.DEMO_PASSWORD || 'demo';
 
     await page.fill('input[name="username"]', demoUsername);
     await page.fill('input[name="password"]', demoPassword);
@@ -150,13 +150,15 @@ test.describe('Mobile navigation (Mobile History reachability)', () => {
   });
 
   test('mobile user can open the menu and navigate to History', async ({ page }) => {
-    await page.fill('input[name="username"]', process.env.DEMO_USERNAME || 'demo-user');
-    await page.fill('input[name="password"]', process.env.DEMO_PASSWORD || 'demo-pass');
+    await page.fill('input[name="username"]', process.env.DEMO_USERNAME || 'demo');
+    await page.fill('input[name="password"]', process.env.DEMO_PASSWORD || 'demo');
     await page.click('button[type="submit"]');
     await expect(page.locator('text=Ask your database a question')).toBeVisible();
 
-    // Desktop nav hidden on mobile viewport.
-    await expect(page.locator('nav.md\\:flex')).toHaveCount(0);
+    // Desktop nav is hidden (via the `hidden` class) on the mobile viewport.
+    // `hidden` removes it from layout but keeps it in the DOM, so assert on
+    // visibility rather than element count.
+    await expect(page.locator('nav.md\\:flex')).toBeHidden();
 
     // Open the accessible mobile menu.
     await page.click('button[aria-label="Open navigation"]');
@@ -166,6 +168,6 @@ test.describe('Mobile navigation (Mobile History reachability)', () => {
     // Navigate via the mobile menu.
     await page.click('nav[aria-label="Mobile navigation"] >> text=History');
     await expect(page).toHaveURL('/history');
-    await expect(page.locator('text=Query History')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Query History' })).toBeVisible();
   });
 });
