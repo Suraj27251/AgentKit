@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import ThemeToggle from '@/app/(protected)/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
+import { clearStoredHistory } from '@/lib/history';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -47,7 +48,7 @@ export default function TopNav() {
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <form action="/logout" method="post">
+          <form action="/logout" method="post" onSubmit={clearStoredHistory}>
             <button
               type="submit"
               title="Sign out"

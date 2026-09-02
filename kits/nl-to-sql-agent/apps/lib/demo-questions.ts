@@ -39,3 +39,32 @@ export function isApprovedDemoQuestion(question: string): boolean {
     (approved) => normalizeDemoQuestion(approved) === normalized
   );
 }
+
+/**
+ * The kind of processing a request should receive.
+ *  - blocked: a restricted demo user asked an unapproved question.
+ *  - mock:    non-demo development request with mock mode enabled.
+ *  - real:    approved demo question (always the real flow) or a non-demo
+ *             request without mock mode.
+ *
+ * Mock mode must never masquerade as a real answer for a restricted demo
+ * session, so the mock branch is excluded whenever isDemo is true.
+ */
+export type DemoRequestDecision =
+  | { kind: "blocked" }
+  | { kind: "mock" }
+  | { kind: "real" };
+
+export function decideDemoRequest(options: {
+  isDemo: boolean;
+  isApproved: boolean;
+  mockEnabled: boolean;
+}): DemoRequestDecision {
+  if (options.isDemo && !options.isApproved) {
+    return { kind: "blocked" };
+  }
+  if (options.mockEnabled && !options.isDemo) {
+    return { kind: "mock" };
+  }
+  return { kind: "real" };
+}
