@@ -38,21 +38,121 @@ const UNSAFE_KEYWORDS = [
 ];
 
 /**
+ * Scan the SQL and locate a TOP clause that belongs to the OUTER executable
+ * SELECT. A TOP inside a nested query (scalar subquery, derived table, CTE
+ * body) or inside a string literal or comment does NOT satisfy the row-limit
+ * requirement for the outer query, so it must not be treated as an existing
+ * TOP.
+ *
+ * Parenthesis depth is tracked while skipping string literals, quoted
+ * identifiers, and comments (so their parens/keywords are ignored). Only a TOP
+ * encountered at depth 0 is returned.
+ *
+ * @returns { value, clauseStart, clauseEnd } where `value` is the outer TOP's
+ *          numeric value and `clauseStart`/`clauseEnd` span the whole TOP
+ *          clause (keyword through optional parenthesized value) so it can be
+ *          replaced when capped. Returns null when the outer query has no TOP.
+ */
+function findOuterTop(sql: string): { value: number; clauseStart: number; clauseEnd: number } | null {
+  let depth = 0;
+  let i = 0;
+  const n = sql.length;
+
+  while (i < n) {
+    const ch = sql[i];
+
+    // Skip single-quoted string literals with '' escaping.
+    if (ch === "'") {
+      i++;
+      while (i < n) {
+        if (sql[i] === "'") {
+          if (sql[i + 1] === "'") { i += 2; continue; }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Skip double-quoted strings/identifiers with "" escaping.
+    if (ch === '"') {
+      i++;
+      while (i < n) {
+        if (sql[i] === '"') {
+          if (sql[i + 1] === '"') { i += 2; continue; }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Skip line comments (-- to end of line).
+    if (ch === '-' && sql[i + 1] === '-') {
+      while (i < n && sql[i] !== '\n') i++;
+      continue;
+    }
+
+    // Skip block comments (/* ... */).
+    if (ch === '/' && sql[i + 1] === '*') {
+      i += 2;
+      while (i < n && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+
+    // Track parenthesis depth.
+    if (ch === '(') { depth++; i++; continue; }
+    if (ch === ')') { if (depth > 0) depth--; i++; continue; }
+
+    // Only consider TOP at the outer depth.
+    if (
+      depth === 0 &&
+      i + 3 <= n &&
+      sql.slice(i, i + 3).toUpperCase() === 'TOP' &&
+      (i === 0 || !/[a-zA-Z0-9_]/.test(sql[i - 1])) &&
+      (i + 3 >= n || !/[a-zA-Z0-9_]/.test(sql[i + 3]))
+    ) {
+      const clauseStart = i;
+      let j = i + 3;
+      while (j < n && /\s/.test(sql[j])) j++;
+      let hasParens = false;
+      if (j < n && sql[j] === '(') {
+        hasParens = true;
+        j++;
+        while (j < n && /\s/.test(sql[j])) j++;
+      }
+      const numStart = j;
+      while (j < n && /\d/.test(sql[j])) j++;
+      const numStr = sql.slice(numStart, j);
+      if (numStr.length === 0) return null;
+      let clauseEnd = j;
+      if (hasParens) {
+        while (clauseEnd < n && /\s/.test(sql[clauseEnd])) clauseEnd++;
+        if (clauseEnd < n && sql[clauseEnd] === ')') clauseEnd++;
+      }
+      return { value: parseInt(numStr, 10), clauseStart, clauseEnd };
+    }
+
+    i++;
+  }
+
+  return null;
+}
+
+/**
  * Normalize TOP clause to enforce maximum result limit
  * @param sql - The SQL query to normalize
  * @returns Object with normalized SQL and a flag indicating if limit was capped
  */
 function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: boolean } {
-  // Pattern to match TOP clause with optional parentheses and number
-  // Matches: TOP 100, TOP (100), TOP 1000, etc.
-  // Note: We don't use \b at the end because ) is not a word character,
-  // making word boundary detection unreliable after the closing paren
-  const topPattern = /\bTOP\s+(\()?(\d+)(\))?(?=\s|$)/i;
-  const match = sql.match(topPattern);
+  const outerTop = findOuterTop(sql);
 
-  if (!match) {
-    // No TOP clause found, add TOP MAX_RESULT_ROWS at the beginning of SELECT
-    // Insert after SELECT or SELECT DISTINCT
+  if (outerTop === null) {
+    // No outer TOP clause found, add TOP MAX_RESULT_ROWS at the beginning of
+    // the outer SELECT. Handles SELECT or SELECT DISTINCT.
     const selectDistinctPattern = /^(\s*SELECT\s+DISTINCT\s+)/i;
     const selectPattern = /^(\s*SELECT\s+)/i;
 
@@ -69,19 +169,18 @@ function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: 
     };
   }
 
-  // TOP clause exists, check if it exceeds the maximum
-  const topValue = parseInt(match[2], 10);
-
-  if (topValue > MAX_RESULT_ROWS) {
-    // Replace the entire TOP clause (including optional parentheses) with normalized value
-    const normalizedSql = sql.replace(topPattern, `TOP ${MAX_RESULT_ROWS}`);
+  if (outerTop.value > MAX_RESULT_ROWS) {
+    // Replace the whole outer TOP clause (keyword and optional parens) with
+    // the normalized bare form, matching the previous `TOP 1000` output.
+    const normalizedSql =
+      sql.slice(0, outerTop.clauseStart) + `TOP ${MAX_RESULT_ROWS}` + sql.slice(outerTop.clauseEnd);
     return {
       normalizedSql,
       limitCapped: true,
     };
   }
 
-  // TOP clause is within limits, no change needed
+  // Outer TOP is within limits, no change needed.
   return {
     normalizedSql: sql,
     limitCapped: false,
@@ -91,15 +190,21 @@ function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: 
 /**
  * Remove quoted string literals and comments so keyword checks do not match
  * text that lives inside data values or comments.
+ *
+ * Stripped text is replaced with a single space (not an empty string) so that
+ * two surrounding SQL tokens cannot be concatenated into one. For example,
+ * `SELECT CustomerId blockComment INTO Audit` must not collapse `CustomerId`
+ * and `INTO` into one token, which would otherwise evade the SELECT INTO
+ * check. Whitespace replacement is always safe: it can never forge a keyword.
  */
 function stripQuotedStringsAndComments(sql: string): string {
   return sql
     // Remove single- and double-quoted string literals (including '' / "" escapes)
-    .replace(/'(?:[^']|'')*'/g, '')
-    .replace(/"(?:[^"]|"")*"/g, '')
-    // Remove single-line and block comments
-    .replace(/--[^\n]*/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
+    .replace(/'(?:[^']|'')*'/g, ' ')
+    .replace(/"(?:[^"]|"")*"/g, ' ')
+    // Remove single-line and block comments, preserving token boundaries
+    .replace(/--[^\n]*/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ');
 }
 
 /**
@@ -119,6 +224,12 @@ function validateSqlSafety(sql: string): { isSafe: boolean; error: string } {
     };
   }
 
+  // Strip literals and comments first (replacing with whitespace to preserve
+  // token boundaries) so that keywords appearing only inside string values or
+  // comments are never treated as operations, while real write/DDL keywords
+  // outside literals/comments are still caught below.
+  const stripped = stripQuotedStringsAndComments(trimmedSql);
+
   // Check for unsafe keywords FIRST (before SELECT check) so we catch write/DDL operations
   // Use word boundaries to avoid matching partial words
   const unsafeKeywordPattern = new RegExp(
@@ -126,7 +237,7 @@ function validateSqlSafety(sql: string): { isSafe: boolean; error: string } {
     'i'
   );
 
-  if (unsafeKeywordPattern.test(trimmedSql)) {
+  if (unsafeKeywordPattern.test(stripped)) {
     return {
       isSafe: false,
       error: 'SQL contains write or DDL operations. Only read-only SELECT queries are allowed.',
@@ -140,9 +251,6 @@ function validateSqlSafety(sql: string): { isSafe: boolean; error: string } {
       error: 'SQL must start with SELECT. Only read-only queries are allowed.',
     };
   }
-
-  // Strip literals and comments so the checks below do not match values/comment text.
-  const stripped = stripQuotedStringsAndComments(trimmedSql);
 
   // Block SELECT ... INTO (creates/populates a table - not read-only)
   if (/\bSELECT\b[\s\S]*?\bINTO\b/i.test(stripped)) {

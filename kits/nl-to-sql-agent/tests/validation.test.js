@@ -2,172 +2,52 @@
 /**
  * SQL Validation and Normalization Tests
  *
- * Tests for the validateAndNormalizeSql function to ensure:
- * 1. Queries without TOP receive TOP 1000
- * 2. Queries with safe TOP (<=1000) remain unchanged
- * 3. Queries with TOP >1000 are normalized to TOP 1000
- * 4. Unsafe SQL is properly rejected
- * 5. Multiple statements are rejected
- * 6. Write/DDL operations are rejected
+ * Tests for the production validateAndNormalizeSql implementation in
+ * scripts/nl-to-sql-agent_validation-node.ts to ensure:
+ * 1. Queries without an outer TOP receive TOP 1000
+ * 2. Queries with a safe outer TOP (<=1000) remain unchanged
+ * 3. Queries with an outer TOP >1000 are normalized to TOP 1000
+ * 4. A TOP inside a nested/subquery must NOT satisfy the outer row limit
+ * 5. Unsafe SQL is properly rejected, including SELECT INTO hidden by comments
+ * 6. Multiple statements are rejected
+ * 7. Write/DDL operations are rejected
+ *
+ * The functions under test are extracted from the actual production script so
+ * the tests exercise the real implementation, not a locally copied version.
  */
 
-// Test configuration
-const MAX_RESULT_ROWS = 1000;
+// ============================================================================
+// LOAD THE REAL PRODUCTION IMPLEMENTATION
+// ============================================================================
 
-// Unsafe keywords that indicate write or DDL operations
-const UNSAFE_KEYWORDS = [
-  'INSERT',
-  'UPDATE',
-  'DELETE',
-  'DROP',
-  'ALTER',
-  'CREATE',
-  'TRUNCATE',
-  'MERGE',
-  'CALL',
-  'EXEC',
-  'EXECUTE',
-];
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-/**
- * Normalize TOP clause to enforce maximum result limit
- */
-function normalizeTopClause(sql) {
-  // Pattern to match TOP clause with optional parentheses and number
-  // Note: We don't use \b at the end because ) is not a word character,
-  // making word boundary detection unreliable after the closing paren
-  const topPattern = /\bTOP\s+(\()?(\d+)(\))?(?=\s|$)/i;
-  const match = sql.match(topPattern);
+const scriptSource = fs.readFileSync(
+  path.join(__dirname, '..', 'scripts', 'nl-to-sql-agent_validation-node.ts'),
+  'utf8'
+);
 
-  if (!match) {
-    const selectDistinctPattern = /^(\s*SELECT\s+DISTINCT\s+)/i;
-    const selectPattern = /^(\s*SELECT\s+)/i;
+// The production script's function definitions live before the Lamatic runtime
+// tail (which references the runtime-injected `LLMNode_sql_gen` variable and so
+// cannot be executed here). Extract that head, write it to a temp .ts module
+// (Node 24 type-strips the annotations) and expose the real functions so the
+// tests exercise the actual production implementation, not a local copy.
+const tailMarker = '// Execute validation and normalization';
+const funcsSource = scriptSource.slice(0, scriptSource.indexOf(tailMarker));
 
-    let normalizedSql;
-    if (selectDistinctPattern.test(sql)) {
-      normalizedSql = sql.replace(selectDistinctPattern, `$1TOP ${MAX_RESULT_ROWS} `);
-    } else {
-      normalizedSql = sql.replace(selectPattern, `$1TOP ${MAX_RESULT_ROWS} `);
-    }
+const tempModule = path.join(
+  os.tmpdir(),
+  `nl-to-sql-validation-${process.pid}-${Date.now()}.ts`
+);
+fs.writeFileSync(
+  tempModule,
+  `${funcsSource}\nmodule.exports = { findOuterTop, normalizeTopClause, stripQuotedStringsAndComments, validateSqlSafety, validateAndNormalizeSql };\n`
+);
 
-    return { normalizedSql, limitCapped: false };
-  }
-
-  const topValue = parseInt(match[2], 10);
-  if (topValue > MAX_RESULT_ROWS) {
-    const normalizedSql = sql.replace(topPattern, `TOP ${MAX_RESULT_ROWS}`);
-    return { normalizedSql, limitCapped: true };
-  }
-
-  return { normalizedSql: sql, limitCapped: false };
-}
-
-/**
- * Remove quoted string literals and comments so keyword checks do not match
- * text that lives inside data values or comments.
- */
-function stripQuotedStringsAndComments(sql) {
-  return sql
-    .replace(/'(?:[^']|'')*'/g, '')
-    .replace(/"(?:[^"]|"")*"/g, '')
-    .replace(/--[^\n]*/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
-}
-
-/**
- * Validate that SQL is safe
- */
-function validateSqlSafety(sql) {
-  const trimmedSql = sql.trim();
-
-  if (!trimmedSql) {
-    return { isSafe: false, error: 'SQL query cannot be empty.' };
-  }
-
-  // Check for unsafe keywords FIRST (before SELECT check) so we catch write/DDL operations
-  const unsafeKeywordPattern = new RegExp(
-    `\\b(${UNSAFE_KEYWORDS.join('|')})\\b`,
-    'i'
-  );
-
-  if (unsafeKeywordPattern.test(trimmedSql)) {
-    return {
-      isSafe: false,
-      error: 'SQL contains write or DDL operations. Only read-only SELECT queries are allowed.',
-    };
-  }
-
-  if (!/^\s*SELECT\b/i.test(trimmedSql)) {
-    return {
-      isSafe: false,
-      error: 'SQL must start with SELECT. Only read-only queries are allowed.',
-    };
-  }
-
-  const stripped = stripQuotedStringsAndComments(trimmedSql);
-
-  // Block SELECT ... INTO (creates/populates a table - not read-only)
-  if (/\bSELECT\b[\s\S]*?\bINTO\b/i.test(stripped)) {
-    return {
-      isSafe: false,
-      error: 'SQL contains SELECT INTO, which creates or populates a table. Only read-only SELECT queries are allowed.',
-    };
-  }
-
-  // Block TOP ... PERCENT
-  if (/\bTOP\s+\(?\d+\)?\s+PERCENT\b/i.test(stripped)) {
-    return {
-      isSafe: false,
-      error: 'TOP PERCENT is not allowed because it can bypass the maximum result limit.',
-    };
-  }
-
-  // Block TOP ... WITH TIES
-  if (/\bTOP\s+\(?\d+\)?\s+WITH\s+TIES\b/i.test(stripped)) {
-    return {
-      isSafe: false,
-      error: 'TOP WITH TIES is not allowed because it can return more than the maximum result limit.',
-    };
-  }
-
-  const sqlWithoutTrailingSemicolon = trimmedSql.replace(/;\s*$/, '');
-  if (sqlWithoutTrailingSemicolon.includes(';')) {
-    return {
-      isSafe: false,
-      error: 'Multiple SQL statements are not allowed. Only a single SELECT is permitted.',
-    };
-  }
-
-  return { isSafe: true, error: '' };
-}
-
-/**
- * Main validation function
- */
-function validateAndNormalizeSql(generatedSql) {
-  const originalSql = generatedSql;
-  const safetyCheck = validateSqlSafety(originalSql);
-
-  if (!safetyCheck.isSafe) {
-    return {
-      safeSql: '',
-      isSafe: false,
-      error: safetyCheck.error,
-      limitCapped: false,
-      originalSql,
-    };
-  }
-
-  const { normalizedSql, limitCapped } = normalizeTopClause(originalSql);
-
-  return {
-    safeSql: normalizedSql,
-    isSafe: true,
-    error: '',
-    limitCapped,
-    originalSql,
-  };
-}
+const { stripQuotedStringsAndComments, validateAndNormalizeSql } = require(tempModule);
+fs.unlinkSync(tempModule);
 
 // ============================================================================
 // TEST CASES
@@ -239,7 +119,58 @@ const testCases = [
     expectedCapped: true,
   },
 
-  // Unsafe cases
+  // === Issue #3: outer-query TOP detection ===
+  {
+    name: 'No outer TOP, no nested TOP -> outer TOP 1000',
+    input: 'SELECT * FROM Customers',
+    expectedSql: 'SELECT TOP 1000 * FROM Customers',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+  {
+    name: 'Nested scalar subquery TOP 1, no outer TOP -> outer TOP 1000',
+    input: 'SELECT (SELECT TOP 1 name FROM sys.objects) AS name FROM sys.objects',
+    expectedSql: 'SELECT TOP 1000 (SELECT TOP 1 name FROM sys.objects) AS name FROM sys.objects',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+  {
+    name: 'Nested derived-table TOP 1, no outer TOP -> outer TOP 1000',
+    input: 'SELECT o.name FROM (SELECT TOP 1 name FROM sys.objects) o',
+    expectedSql: 'SELECT TOP 1000 o.name FROM (SELECT TOP 1 name FROM sys.objects) o',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+  {
+    name: 'Outer TOP 100 is preserved (even with nested TOP)',
+    input: 'SELECT TOP 100 (SELECT TOP 1 name FROM sys.objects) AS name FROM sys.objects',
+    expectedSql: 'SELECT TOP 100 (SELECT TOP 1 name FROM sys.objects) AS name FROM sys.objects',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+  {
+    name: 'Outer TOP (100) preserved',
+    input: 'SELECT TOP (100) * FROM Customers',
+    expectedSql: 'SELECT TOP (100) * FROM Customers',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+  {
+    name: 'Oversized outer TOP with nested TOP only caps the outer',
+    input: 'SELECT TOP 5000 (SELECT TOP 1 name FROM sys.objects) AS name FROM sys.objects',
+    expectedSql: 'SELECT TOP 1000 (SELECT TOP 1 name FROM sys.objects) AS name FROM sys.objects',
+    expectedSafe: true,
+    expectedCapped: true,
+  },
+  {
+    name: 'TOP inside string literal does not satisfy outer limit',
+    input: "SELECT 'TOP 5 literal' AS label FROM Customers",
+    expectedSql: "SELECT TOP 1000 'TOP 5 literal' AS label FROM Customers",
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+
+  // === Unsafe cases ===
   {
     name: 'DELETE statement',
     input: 'DELETE FROM Customers',
@@ -301,6 +232,62 @@ const testCases = [
     expectedSafe: false,
     expectedErrorPattern: /SELECT INTO/i,
   },
+
+  // === Issue #2: comment stripping must preserve token boundaries ===
+  {
+    name: 'SELECT INTO hidden behind block comment is detected',
+    input: 'SELECT CustomerId/* comment */INTO Audit FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /SELECT INTO/i,
+  },
+  {
+    name: 'SELECT INTO hidden behind two block comments is detected',
+    input: 'SELECT/* one */CustomerId/* two */INTO Audit FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /SELECT INTO/i,
+  },
+  {
+    name: 'SELECT INTO hidden behind whitespace-around-comment is detected',
+    input: 'SELECT CustomerId /* comment */ INTO Audit FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /SELECT INTO/i,
+  },
+  {
+    name: 'SELECT INTO hidden behind line comment is detected',
+    input: 'SELECT CustomerId -- drop me\nINTO Audit FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /SELECT INTO/i,
+  },
+  {
+    name: 'SELECT INTO merged by uppercase block comment is detected',
+    input: 'SELECT CustomerId/* hidden into */INTO Audit FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /SELECT INTO/i,
+  },
+
+  // Safe queries with keywords inside literals/comments must not be rejected.
+  {
+    name: 'DELETE inside a string literal is not treated as an operation',
+    input: "SELECT * FROM Customers WHERE Status = 'DELETE'",
+    expectedSafe: true,
+    expectedSql: "SELECT TOP 1000 * FROM Customers WHERE Status = 'DELETE'",
+    expectedCapped: false,
+  },
+  {
+    name: 'Keywords inside a block comment are ignored',
+    input: 'SELECT * FROM Customers /* DROP TABLE */',
+    expectedSafe: true,
+    expectedSql: 'SELECT TOP 1000 * FROM Customers /* DROP TABLE */',
+    expectedCapped: false,
+  },
+  {
+    name: 'Keyword-like column names in a comment are not false positives',
+    input: 'SELECT * FROM Orders /* order INTO backup */',
+    expectedSafe: true,
+    expectedSql: 'SELECT TOP 1000 * FROM Orders /* order INTO backup */',
+    expectedCapped: false,
+  },
+
   // TOP PERCENT bypass
   {
     name: 'TOP 100 PERCENT',
@@ -400,11 +387,48 @@ testCases.forEach((testCase, index) => {
   }
 });
 
+// ============================================================================
+// UNIT-LEVEL CHECKS ON THE PRODUCTION STRIPPER
+// ============================================================================
+
+console.log('');
+
+function stripCheck(name, input, expected) {
+  const actual = stripQuotedStringsAndComments(input);
+  if (actual === expected) {
+    passedTests++;
+    console.log(`✅ PASS: ${name}`);
+  } else {
+    failedTests++;
+    console.log(`❌ FAIL: ${name}\n   Expected: ${JSON.stringify(expected)}\n   Got:      ${JSON.stringify(actual)}`);
+  }
+}
+
+stripCheck(
+  'Comment stripping preserves token boundaries (block comment)',
+  'SELECT CustomerId/* comment */INTO Audit',
+  'SELECT CustomerId INTO Audit'
+);
+
+stripCheck(
+  'Comment stripping preserves token boundaries (line comment)',
+  'SELECT CustomerId -- drop\nINTO Audit',
+  'SELECT CustomerId  \nINTO Audit'
+);
+
+stripCheck(
+  'Not-topped query keeps its SELECT prefix aligned',
+  'SELECT  FROM Customers',
+  'SELECT  FROM Customers'
+);
+
 // Summary
+const stripCheckCount = 3;
+const totalTests = testCases.length + stripCheckCount;
 console.log(`\n${'='.repeat(60)}`);
 console.log(`📊 Test Summary:`);
-console.log(`   ✅ Passed: ${passedTests}/${testCases.length}`);
-console.log(`   ❌ Failed: ${failedTests}/${testCases.length}`);
+console.log(`   ✅ Passed: ${passedTests}/${totalTests}`);
+console.log(`   ❌ Failed: ${failedTests}/${totalTests}`);
 console.log(`${'='.repeat(60)}`);
 
 if (failedTests === 0) {
