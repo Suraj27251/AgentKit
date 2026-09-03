@@ -1,26 +1,26 @@
 #!/usr/bin/env node
 /**
- * Lamatic Authorization Transport Safety Tests (Issue #4)
+ * Lamatic Authorization Transport Safety Tests
  *
  * Verifies the security property that a Lamatic API credential (the
- * Authorization Bearer key) can never be sent to an untrusted remote HTTP
- * endpoint.
+ * Authorization Bearer key) can never be transmitted to an untrusted or
+ * insecure endpoint - including plain-HTTP loopback.
  *
  * Production behavior (apps/lib/lamatic-client.ts):
- *   - The Lamatic endpoint is validated at module load via
- *     validateLamaticEndpoint(), which requires HTTPS for remote hosts and
- *     plain HTTP only for localhost/loopback, before any request is made.
- *   - There is exactly ONE fetch() path (executeLamaticFlow) that attaches the
- *     Authorization header, and it always uses the same validated
- *     LAMATIC_API_URL constant.
+ *   - validateLamaticEndpoint() requires the https: protocol and rejects every
+ *     plain-HTTP endpoint (remote AND localhost/loopback).
+ *   - LAMATIC_API_URL is defined as the return value of that validation, so the
+ *     module's only fetch target is the validated https:// endpoint and the
+ *     Authorization header is never attached to an HTTP URL.
+ *   - There is exactly ONE fetch() path (executeLamaticFlow), and it always
+ *     uses the validated LAMATIC_API_URL constant.
  *
  * This suite executes the REAL production validateLamaticEndpoint function
- * (extracted from source) and asserts the static ordering / single-fetch
- * property directly on the production file.
+ * (extracted from source) and asserts the static ordering / single-fetch /
+ * no-key-logging properties directly on the production file.
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 let passed = 0;
@@ -44,15 +44,22 @@ const clientSource = fs.readFileSync(
 );
 
 // ============================================================================
-// STATIC CONTRACT: validation happens before the credential is attached
+// STATIC CONTRACT: the fetch target is the validated HTTPS endpoint
 // ============================================================================
 
 test(
-  'Endpoint validation runs at module scope (before any fetch)',
-  /validateLamaticEndpoint\(LAMATIC_API_URL\);\s*\n\s*export async function executeLamaticFlow/.test(clientSource)
+  'LAMATIC_API_URL is the return value of endpoint validation (no raw env URL)',
+  /\nconst LAMATIC_API_URL = validateLamaticEndpoint\(process\.env\.LAMATIC_API_URL\);/.test(clientSource)
 );
 
-const authHeaderCount = (clientSource.match(/Authorization/g) || []).length;
+test(
+  'Only the https: protocol is accepted by validation',
+  /parsed\.protocol !== "https:"\)\s*\{/.test(clientSource)
+);
+
+// Count the actual header attachment (the key with a colon), not bare word
+// mentions that appear in documentation comments.
+const authHeaderCount = (clientSource.match(/["']Authorization["']\s*:/g) || []).length;
 const fetchCount = (clientSource.match(/\bfetch\(/g) || []).length;
 
 test(
@@ -68,7 +75,7 @@ test(
 );
 
 test(
-  'The fetch uses the same validated LAMATIC_API_URL constant',
+  'The fetch uses the validated LAMATIC_API_URL constant',
   /fetch\(LAMATIC_API_URL,/.test(clientSource)
 );
 
@@ -79,7 +86,14 @@ test(
 
 test(
   'No alternate URL branch constructs a request outside executeLamaticFlow',
-  (clientSource.match(/fetch\(/g) || []).length === 1
+  fetchCount === 1
+);
+
+// No raw API key may ever be logged or otherwise emitted.
+test(
+  'No API key is logged or written to console',
+  !/console\.(log|error|warn|info)\([^)]*LAMATIC_API_KEY/.test(clientSource) &&
+    !/console\.(log|error|warn|info)\([^)]*Authorization/.test(clientSource)
 );
 
 // ============================================================================
@@ -87,7 +101,7 @@ test(
 // ============================================================================
 
 function extractFunction(src, name) {
-  const sigRegex = new RegExp(`function ${name}\\(url: string\\): void \\{`);
+  const sigRegex = new RegExp(`function ${name}\\(url: string\\): string \\{`);
   const sigStart = src.search(sigRegex);
   test(`Extracted ${name} from production source`, sigStart !== -1);
   if (sigStart === -1) return null;
@@ -105,7 +119,7 @@ function extractFunction(src, name) {
   const funcSrc = src.slice(sigStart, i);
   // Strip the small set of TS type annotations in this function.
   const cleaned = funcSrc
-    .replace(/\(url: string\): void/, '(url)')
+    .replace(/\(url: string\): string/, '(url)')
     .replace(/: URL;/g, ';');
   // eslint-disable-next-line no-new-func
   return new Function(`${cleaned}\nreturn ${name};`)();
@@ -133,24 +147,24 @@ function expectRejected(url) {
 
 test('Remote HTTPS endpoint is accepted', expectValid('https://api.lamatic.ai/graphql'));
 test('Remote HTTPS with a path is accepted', expectValid('https://api.lamatic.ai/v1/graphql'));
+test('Validated HTTPS URL is returned unchanged', (() => {
+  const result = validateLamaticEndpoint('https://api.lamatic.ai/graphql');
+  return result === 'https://api.lamatic.ai/graphql';
+})());
 
 test('Malformed URL is rejected', expectRejected('not-a-url'));
 test('Remote http:// endpoint is rejected', expectRejected('http://api.lamatic.ai/graphql'));
 test('Remote http:// with non-loopback hostname is rejected', expectRejected('http://evil.example.com/graphql'));
 test('Unsupported protocol (ftp) is rejected', expectRejected('ftp://api.lamatic.ai/graphql'));
 
-test('Localhost http is accepted (local development)', expectValid('http://localhost:4000/graphql'));
-test('127.0.0.1 http is accepted (local development)', expectValid('http://127.0.0.1:3000/graphql'));
-
-// Node's URL.hostname for IPv6 is "[::1]" (with brackets), which the production
-// validator does not currently recognize. This only makes it MORE restrictive
-// (fail-closed) — it can never let credentials reach an unvalidated host — so
-// it must remain rejected, never silently accepted.
+// The Lamatic API key must never be sent in cleartext, even to loopback.
+test('Localhost http is rejected (credentials must not traverse HTTP)', expectRejected('http://localhost:4000/graphql'));
+test('127.0.0.1 http is rejected (credentials must not traverse HTTP)', expectRejected('http://127.0.0.1:3000/graphql'));
 test('IPv6 loopback http is rejected (fail-closed, not a bypass)', expectRejected('http://[::1]:3000/graphql'));
 
 test('Insecure URL rejection message is explicit', (() => {
   try {
-    validateLamaticEndpoint('http://api.lamatic.ai/graphql');
+    validateLamaticEndpoint('http://localhost:4000/graphql');
   } catch (e) {
     return /[Ii]nsecure|https/i.test(e.message);
   }
