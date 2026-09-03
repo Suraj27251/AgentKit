@@ -27,16 +27,20 @@ if (!nlToSqlFlowId) {
 
 export const NL_TO_SQL_FLOW_ID = nlToSqlFlowId;
 
-const LAMATIC_API_URL = process.env.LAMATIC_API_URL;
 const LAMATIC_API_KEY = process.env.LAMATIC_API_KEY;
 const LAMATIC_PROJECT_ID = process.env.LAMATIC_PROJECT_ID;
 
 /**
- * Validate the Lamatic endpoint. Only HTTPS is allowed for remote hosts so
- * API credentials are never sent in cleartext. Plain HTTP is permitted only
- * for local development endpoints (localhost / 127.0.0.1).
+ * Require that the Lamatic endpoint is HTTPS. The Lamatic API credential (the
+ * Authorization Bearer header derived from LAMATIC_API_KEY) must only ever be
+ * transmitted over a secure, authenticated transport. Any plain-HTTP endpoint
+ * - including localhost and loopback - is rejected before a request can be
+ * constructed, so the key can never be sent in cleartext.
+ *
+ * Returns the validated URL so that the module's only fetch target is the
+ * direct output of this validation.
  */
-function validateLamaticEndpoint(url: string): void {
+function validateLamaticEndpoint(url: string): string {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -46,29 +50,20 @@ function validateLamaticEndpoint(url: string): void {
     );
   }
 
-  if (parsed.protocol === "https:") {
-    return;
-  }
-
-  if (parsed.protocol === "http:") {
-    const isLocal =
-      parsed.hostname === "localhost" ||
-      parsed.hostname === "127.0.0.1" ||
-      parsed.hostname === "::1";
-    if (isLocal) {
-      return;
-    }
+  if (parsed.protocol !== "https:") {
     throw new Error(
-      "Insecure LAMATIC_API_URL. Lamatic credentials must be sent over HTTPS; remote http:// endpoints are not allowed."
+      "Insecure LAMATIC_API_URL. Lamatic API credentials may only be transmitted over https://. Plain http:// endpoints, including localhost, are not allowed."
     );
   }
 
-  throw new Error(
-    "Invalid LAMATIC_API_URL protocol. Only https:// (or http://localhost for development) is supported."
-  );
+  return url;
 }
 
-validateLamaticEndpoint(LAMATIC_API_URL);
+// The only endpoint this module may send credentials to. Validation runs at
+// module load (before any fetch) and LAMATIC_API_URL is defined as the return
+// value of that validation, so the Authorization header can never be attached
+// to an HTTP or otherwise unvalidated URL.
+const LAMATIC_API_URL = validateLamaticEndpoint(process.env.LAMATIC_API_URL);
 
 export async function executeLamaticFlow(
   flowId: string,
