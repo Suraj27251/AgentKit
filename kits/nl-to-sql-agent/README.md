@@ -15,8 +15,8 @@ Ask your database a question in plain English. Get back a validated `SELECT` que
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
 [![Microsoft SQL Server](https://img.shields.io/badge/Database-MSSQL-CC2927?style=flat-square&logo=microsoftsqlserver)](https://www.microsoft.com/en-us/sql-server)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
-[![Read-only](https://img.shields.io/badge/Queries-Read--Only_%F0%9F%94%92-blue?style=flat-square)]()
-[![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)]()
+![Read-only](https://img.shields.io/badge/Queries-Read--Only_%F0%9F%94%92-blue?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)
 
 </div>
 
