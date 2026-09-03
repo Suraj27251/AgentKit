@@ -41,6 +41,20 @@ export function isApprovedDemoQuestion(question: string): boolean {
 }
 
 /**
+ * Resolve the effective demo-restriction flag from a raw stored isDemo value.
+ *
+ * Fail-closed policy: a missing, undefined, or otherwise untrusted `isDemo`
+ * value must never silently become an unrestricted non-demo session. This kit's
+ * only supported login is the restricted demo session, so a stored session that
+ * does not carry an explicit `isDemo === true` is treated as demo-restricted.
+ * Only an explicit `false` (which nothing in this kit writes today) is honored
+ * as a non-demo session.
+ */
+export function resolveDemoRestriction(rawIsDemo: boolean | undefined): boolean {
+  return rawIsDemo === undefined ? true : rawIsDemo;
+}
+
+/**
  * The kind of processing a request should receive.
  *  - blocked: a restricted demo user asked an unapproved question.
  *  - mock:    non-demo development request with mock mode enabled.

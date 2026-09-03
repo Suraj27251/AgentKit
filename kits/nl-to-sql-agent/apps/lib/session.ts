@@ -1,5 +1,6 @@
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
+import { resolveDemoRestriction } from '@/lib/demo-questions';
 
 export interface SessionData {
   userId?: string;
@@ -52,7 +53,10 @@ export async function getSession(): Promise<SessionData> {
   return {
     isLoggedIn: true,
     userId: session.userId,
-    isDemo: session.isDemo === true,
+    // Fail-closed: a logged-in session whose isDemo is missing/undefined
+    // (e.g. a legacy session created before the field existed) is resolved to
+    // demo-restricted, never to an unrestricted non-demo session.
+    isDemo: resolveDemoRestriction(session.isDemo),
   };
 }
 
