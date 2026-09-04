@@ -15,7 +15,7 @@ Ask your database a question in plain English. Get back a validated `SELECT` que
 [![React](https://img.shields.io/badge/React-18.3.1-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
 [![Microsoft SQL Server](https://img.shields.io/badge/Database-MSSQL-CC2927?style=flat-square&logo=microsoftsqlserver)](https://www.microsoft.com/en-us/sql-server)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
 ![Read-only](https://img.shields.io/badge/Queries-Read--Only_%F0%9F%94%92-blue?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)
 
@@ -204,7 +204,7 @@ Try asking:
 |---|---|
 | Frontend framework | Next.js `14.2.15`, React `18.3.1` |
 | Language | TypeScript `5` |
-| Styling | Tailwind CSS `3.4`, `class-variance-authority`, `clsx` |
+| Styling | Tailwind CSS `4`, `class-variance-authority`, `clsx` |
 | UI Components | Radix UI, `lucide-react` icons |
 | Session/auth | `iron-session` |
 | SQL syntax highlighting | `react-syntax-highlighter` |
