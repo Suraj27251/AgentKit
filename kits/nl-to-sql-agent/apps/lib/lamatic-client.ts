@@ -1,3 +1,4 @@
+import { Lamatic } from "lamatic";
 import config from "../../lamatic.config";
 
 if (!process.env.LAMATIC_API_URL) {
@@ -37,8 +38,8 @@ const LAMATIC_PROJECT_ID = process.env.LAMATIC_PROJECT_ID;
  * - including localhost and loopback - is rejected before a request can be
  * constructed, so the key can never be sent in cleartext.
  *
- * Returns the validated URL so that the module's only fetch target is the
- * direct output of this validation.
+ * Returns the validated URL so that the module's only fetch target (the SDK
+ * endpoint below) is the direct output of this validation.
  */
 function validateLamaticEndpoint(url: string): string {
   let parsed: URL;
@@ -60,65 +61,129 @@ function validateLamaticEndpoint(url: string): string {
 }
 
 // The only endpoint this module may send credentials to. Validation runs at
-// module load (before any fetch) and LAMATIC_API_URL is defined as the return
-// value of that validation, so the Authorization header can never be attached
-// to an HTTP or otherwise unvalidated URL.
+// module load (before any SDK request) and LAMATIC_API_URL is defined as the
+// return value of that validation, so the SDK - which derives its
+// Authorization Bearer header from LAMATIC_API_KEY internally - can never
+// attach the credential to an HTTP or otherwise unvalidated URL.
 const LAMATIC_API_URL = validateLamaticEndpoint(process.env.LAMATIC_API_URL);
+
+// Official Lamatic SDK. All flow execution goes through executeFlow(); the SDK
+// performs the authenticated GraphQL request to the validated endpoint above.
+const lamaticClient = new Lamatic({
+  endpoint: LAMATIC_API_URL,
+  projectId: LAMATIC_PROJECT_ID,
+  apiKey: LAMATIC_API_KEY,
+});
+
+/**
+ * Application-level error for Lamatic flow execution failures. Carries the
+ * HTTP status code (when the SDK/API provides one) so callers - e.g.
+ * orchestrate.ts - can keep producing targeted 401/403 guidance without
+ * parsing opaque strings. Never contains credential material.
+ */
+export class LamaticClientError extends Error {
+  readonly statusCode?: number;
+
+  constructor(message: string, statusCode?: number) {
+    super(message);
+    this.name = "LamaticClientError";
+    this.statusCode = statusCode;
+  }
+}
+
+type LamaticExecutionStatus = "success" | "error";
+
+interface LamaticExecutionResponse {
+  status: LamaticExecutionStatus;
+  result: Record<string, any> | null;
+  message?: string;
+  statusCode?: number;
+}
+
+/**
+ * Normalize a resolved SDK execution response to the application contract:
+ *   - success -> { status: "success", result }
+ *   - flow-level failure (non-HTTP, e.g. GraphQL 200) -> resolved
+ *     { status: "error", result, message }, which callers already handle
+ *   - HTTP-level failure (>= 400, e.g. 401/403/5xx) -> throws a
+ *     LamaticClientError whose message keeps the historical
+ *     "Lamatic API error (<status>): <detail>" shape.
+ */
+function normalizeLamaticResponse(
+  response: LamaticExecutionResponse
+): { status: string; result: any; message?: string } {
+  if (!response) {
+    throw new LamaticClientError("No response returned from Lamatic workflow");
+  }
+
+  if (response.status === "success") {
+    return {
+      status: "success",
+      result: response.result ?? null,
+    };
+  }
+
+  if (response.status === "error") {
+    const detail = response.message || "Lamatic workflow execution failed.";
+    const statusCode = response.statusCode;
+
+    if (typeof statusCode === "number" && statusCode >= 400) {
+      throw new LamaticClientError(
+        `Lamatic API error (${statusCode}): ${detail}`,
+        statusCode
+      );
+    }
+
+    return {
+      status: "error",
+      result: response.result ?? null,
+      message: detail,
+    };
+  }
+
+  throw new LamaticClientError(
+    "Lamatic workflow returned an unrecognized status"
+  );
+}
+
+/**
+ * Normalize a throw from the SDK (or the adapter above) into a predictable
+ * application-level error. The SDK itself rethrows raw errors for network
+ * failures and for non-JSON response bodies (a JSON.parse SyntaxError); those
+ * are rewritten so callers always see a stable Lamatic message and no
+ * confusing parser internals leak through. Secrets are never included.
+ */
+function normalizeLamaticError(error: unknown): LamaticClientError {
+  if (error instanceof LamaticClientError) {
+    return error;
+  }
+
+  const message =
+    error && typeof error === "object" && typeof (error as { message?: unknown }).message === "string"
+      ? (error as { message: string }).message
+      : String(error);
+
+  if (
+    /(Unexpected token|Unexpected end of JSON input|is not valid JSON|JSON\.parse)/.test(
+      message
+    )
+  ) {
+    return new LamaticClientError(
+      `Lamatic API returned a non-JSON response: ${message.slice(0, 800)}`
+    );
+  }
+
+  return new LamaticClientError(message);
+}
 
 export async function executeLamaticFlow(
   flowId: string,
   payload: Record<string, unknown>
 ): Promise<{ status: string; result: any; message?: string }> {
-  const query = `
-    query ExecuteWorkflow(
-      $workflowId: String!
-      $question: String
-    ) {
-      executeWorkflow(
-        workflowId: $workflowId
-        payload: {
-          question: $question
-        }
-      ) {
-        status
-        result
-      }
-    }
-  `;
-
-  const variables = {
-    workflowId: flowId,
-    ...payload,
-  };
-
-  const response = await fetch(LAMATIC_API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${LAMATIC_API_KEY}`,
-      "Content-Type": "application/json",
-      "x-project-id": LAMATIC_PROJECT_ID,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Lamatic API error (${response.status}): ${errorText}`);
+  try {
+    const response = await lamaticClient.executeFlow(flowId, payload);
+    return normalizeLamaticResponse(response);
+  } catch (error) {
+    throw normalizeLamaticError(error);
   }
-
-  const data = await response.json();
-
-  if (data.errors && data.errors.length > 0) {
-    throw new Error(`GraphQL error: ${data.errors[0].message}`);
-  }
-
-  const executeWorkflow = data.data?.executeWorkflow;
-  if (!executeWorkflow) {
-    throw new Error("No data returned from Lamatic workflow");
-  }
-
-  return {
-    status: executeWorkflow.status,
-    result: executeWorkflow.result,
-  };
 }
