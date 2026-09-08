@@ -19,36 +19,36 @@ import type { CSSProperties } from 'react';
 
 const saharaPrism: Record<string, CSSProperties> = {
   'code[class*="language-"]': {
-    background: 'transparent', color: '#3a302a',
+    background: 'transparent', color: 'var(--on-surface)',
     fontFamily: 'var(--font-mono)', fontSize: '0.875rem', lineHeight: '1.75',
     margin: 0, padding: 0, textShadow: 'none',
   },
   'pre[class*="language-"]': {
-    background: 'transparent', color: '#3a302a',
+    background: 'transparent', color: 'var(--on-surface)',
     fontFamily: 'var(--font-mono)', fontSize: '0.875rem', lineHeight: '1.75',
     margin: 0, padding: 0, whiteSpace: 'pre', wordSpacing: 'normal',
     wordBreak: 'normal', overflowWrap: 'normal', tabSize: 2,
   },
-  comment: { color: '#9a9088', fontStyle: 'italic' },
-  prolog: { color: '#9a9088' },
-  cdata: { color: '#9a9088' },
-  punctuation: { color: '#3a302a' },
-  keyword: { color: '#c2652a', fontWeight: 500 },
-  boolean: { color: '#8a4518' },
-  number: { color: '#8a4518' },
-  property: { color: '#8a4518' },
-  constant: { color: '#8a4518' },
-  symbol: { color: '#8a4518' },
-  string: { color: '#8c3c3c' },
-  char: { color: '#8c3c3c' },
-  function: { color: '#6e3030' },
-  builtin: { color: '#6e3030' },
-  operator: { color: '#3a302a' },
-  'attr-value': { color: '#8c3c3c' },
-  'attr-name': { color: '#8a4518' },
-  selector: { color: '#3a302a' },
-  important: { color: '#c0392b', fontWeight: 500 },
-  regex: { color: '#6e3030' },
+  comment: { color: 'var(--on-surface-variant)', fontStyle: 'italic' },
+  prolog: { color: 'var(--on-surface-variant)' },
+  cdata: { color: 'var(--on-surface-variant)' },
+  punctuation: { color: 'var(--on-surface)' },
+  keyword: { color: 'var(--primary)', fontWeight: 500 },
+  boolean: { color: 'var(--primary)' },
+  number: { color: 'var(--primary)' },
+  property: { color: 'var(--primary)' },
+  constant: { color: 'var(--primary)' },
+  symbol: { color: 'var(--primary)' },
+  string: { color: 'var(--tertiary)' },
+  char: { color: 'var(--tertiary)' },
+  function: { color: 'var(--tertiary)' },
+  builtin: { color: 'var(--tertiary)' },
+  operator: { color: 'var(--on-surface)' },
+  'attr-value': { color: 'var(--tertiary)' },
+  'attr-name': { color: 'var(--primary)' },
+  selector: { color: 'var(--on-surface)' },
+  important: { color: 'var(--error)', fontWeight: 500 },
+  regex: { color: 'var(--tertiary)' },
 };
 
 const suggestedQueries = [
@@ -400,7 +400,7 @@ function HomePageContent() {
             )}
           </div>
 
-          <div className="group relative flex flex-col overflow-hidden rounded-xl border border-outline-variant/50 bg-[#fcfaf7] lg:col-span-2 dark:bg-surface-container-lowest">
+          <div className="group relative flex flex-col overflow-hidden rounded-xl border border-outline-variant/50 bg-surface-container-lowest lg:col-span-2">
             <div className="flex items-center gap-2 border-b border-outline-variant/30 bg-surface-container-highest/30 px-6 py-3">
               <Code2 className="h-[18px] w-[18px] text-primary" />
               <span className="text-xs font-medium uppercase tracking-widest text-on-surface-variant">
