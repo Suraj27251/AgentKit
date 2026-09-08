@@ -4,15 +4,22 @@
  * Aggregates the flow execution results into a structured response.
  * Includes handling for query limit warnings when TOP values were normalized.
  *
- * Inputs: Results from various flow nodes
+ * Inputs: Results from various flow nodes, supplied through Lamatic template
+ *   variables ({{mssqlNode_execute.output}}, {{LLMNode_explain.output.generatedResponse}},
+ *   {{codeNode_validate.output}})
  * Output: Structured response object with SQL, explanation, results, warnings, etc.
  */
 
 function aggregateResponse() {
-  // Extract outputs from previous nodes
-  const sqlResults = mssqlNode_execute?.output || [];
-  const explanation = LLMNode_explain?.output?.generatedResponse || '';
-  const validationOutput = codeNode_validate?.output || {};
+  // Extract outputs from previous nodes. Each input is supplied through a
+  // Lamatic template variable (see file header), resolved by the runtime before
+  // this script executes. The null-safe coalescing preserves the previous
+  // runtime-global behavior: outputs missing on the unsafe branch (nodes that
+  // never ran) fall back to the same empty defaults.
+  const sqlResultsRaw = {{mssqlNode_execute.output}};
+  const explanation = {{LLMNode_explain.output.generatedResponse}} || '';
+  const validationOutput = {{codeNode_validate.output}} || {};
+  const sqlResults = Array.isArray(sqlResultsRaw) ? sqlResultsRaw : [];
   const originalSql = validationOutput.originalSql || '';
   const safeSql = validationOutput.safeSql || '';
   const isSafe = validationOutput.isSafe || false;

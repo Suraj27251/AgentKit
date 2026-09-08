@@ -10,7 +10,7 @@
  * - Blocks TOP ... WITH TIES (can return > MAX_RESULT_ROWS rows)
  * - Enforces maximum result limit of 1000 rows by normalizing TOP clauses
  *
- * Input: LLMNode_sql_gen.output.generatedResponse (generated SQL)
+ * Input: {{LLMNode_sql_gen.output.generatedResponse}} (generated SQL)
  * Output:
  *   - safeSql: The validated and normalized SQL ready for execution
  *   - isSafe: Boolean indicating if SQL passed all safety checks
@@ -331,8 +331,11 @@ function validateAndNormalizeSql(generatedSql: string): {
   };
 }
 
-// Execute validation and normalization
-const result = validateAndNormalizeSql(LLMNode_sql_gen.output.generatedResponse);
+// Execute validation and normalization.
+// Input boundary: the generated SQL response is supplied through a Lamatic
+// template variable ({{LLMNode_sql_gen.output.generatedResponse}}) that the
+// Lamatic runtime resolves before this script executes.
+const result = validateAndNormalizeSql({{LLMNode_sql_gen.output.generatedResponse}});
 
 // Return the result object for the flow to use
 result;
