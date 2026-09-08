@@ -92,9 +92,10 @@ function findOuterTop(sql: string): { value: number; clauseStart: number; clause
       continue;
     }
 
-    // Skip line comments (-- to end of line).
+    // Skip line comments (-- to end of line). SQL Server terminates a line
+    // comment at a carriage return OR line feed, so stop at either char.
     if (ch === '-' && sql[i + 1] === '-') {
-      while (i < n && sql[i] !== '\n') i++;
+      while (i < n && sql[i] !== '\n' && sql[i] !== '\r') i++;
       continue;
     }
 
@@ -265,10 +266,13 @@ function stripQuotedStringsAndComments(sql: string): string {
     }
 
     // Line comment (-- to end of line; the newline itself is preserved).
+    // SQL Server terminates a -- comment at a carriage return OR line feed, so
+    // a CR-only line ending must end the comment too (else it would swallow a
+    // later statement, which is exactly how a write could bypass the guard).
     if (ch === '-' && next === '-') {
       out += ' ';
       i += 2;
-      while (i < n && sql[i] !== '\n') i++;
+      while (i < n && sql[i] !== '\n' && sql[i] !== '\r') i++;
       continue;
     }
 

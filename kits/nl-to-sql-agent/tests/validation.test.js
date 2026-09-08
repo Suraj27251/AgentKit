@@ -414,6 +414,26 @@ const testCases = [
     expectedSql: "SELECT TOP 1000 '/* hidden DROP */' AS label FROM Customers",
     expectedCapped: false,
   },
+
+  // === CR-only line endings must terminate a -- comment ===
+  {
+    name: 'CR-only line break ends a comment (no hidden DROP)',
+    input: 'SELECT 1 -- drop\r; DROP TABLE Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /write or DDL/i,
+  },
+  {
+    name: 'CR-only line break ends a comment (no hidden statement)',
+    input: 'SELECT 1 -- drop\r; SELECT 2',
+    expectedSafe: false,
+    expectedErrorPattern: /Multiple SQL statements/i,
+  },
+  {
+    name: 'CRLF line break ends a comment (no hidden statement)',
+    input: 'SELECT 1 -- drop\r\n; SELECT 2',
+    expectedSafe: false,
+    expectedErrorPattern: /Multiple SQL statements/i,
+  },
   {
     name: 'Empty SQL',
     input: '',
@@ -522,8 +542,14 @@ stripCheck(
   'SELECT 1  \n; SELECT 2  '
 );
 
+stripCheck(
+  'Comment terminated by CR does not hide later text',
+  'SELECT 1 -- drop\r; SELECT 2',
+  'SELECT 1  \r; SELECT 2'
+);
+
 // Summary
-const stripCheckCount = 5;
+const stripCheckCount = 6;
 const totalTests = testCases.length + stripCheckCount;
 console.log(`\n${'='.repeat(60)}`);
 console.log(`📊 Test Summary:`);
