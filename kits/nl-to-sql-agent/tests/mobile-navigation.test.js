@@ -100,8 +100,8 @@ test(
 
 // --- Logout flow preserved (Batch D, Issue #10) ---
 test(
-  'TopNav logout form still clears stored history',
-  /action="\/logout"\s+method="post"\s+onSubmit=\{clearStoredHistory\}/.test(topNavSource)
+  'TopNav logout form still clears the namespaced history',
+  /action="\/logout"\s+method="post"\s+onSubmit=\{\(\) => clearStoredHistory\(userId\)\}/.test(topNavSource)
 );
 test(
   'Nav items still link to Workspace and History',

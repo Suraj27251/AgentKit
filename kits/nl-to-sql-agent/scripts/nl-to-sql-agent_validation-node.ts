@@ -276,9 +276,13 @@ function validateSqlSafety(sql: string): { isSafe: boolean; error: string } {
     };
   }
 
-  // Check for multiple statements (semicolon separator)
-  // Allow trailing semicolon but not semicolons in the middle
-  const sqlWithoutTrailingSemicolon = trimmedSql.replace(/;\s*$/, '');
+  // Check for multiple statements (semicolon separator).
+  // This runs on `stripped` (literals, comments, and quoted identifiers
+  // removed) so a semicolon that only appears inside a string value or comment
+  // is not mistaken for a statement separator, while real separators outside
+  // data are still caught. This mirrors the unsafe-keyword check above.
+  // Allow trailing semicolon but not semicolons in the middle.
+  const sqlWithoutTrailingSemicolon = stripped.replace(/;\s*$/, '');
   if (sqlWithoutTrailingSemicolon.includes(';')) {
     return {
       isSafe: false,

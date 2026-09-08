@@ -1,13 +1,24 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// Fail closed exactly like apps/actions/login.ts: the demo credentials must be
+// explicitly configured. There is no fallback to hardcoded demo/demo values.
+function demoCredentials() {
+  const username = process.env.DEMO_USERNAME;
+  const password = process.env.DEMO_PASSWORD;
+  if (!username || !password) {
+    throw new Error(
+      'DEMO_USERNAME and DEMO_PASSWORD must be configured to run the E2E suite.'
+    );
+  }
+  return { username, password };
+}
+
 async function login(page: Page) {
-  // Use the demo credentials that the app expects locally for E2E validation.
-  const demoUsername = process.env.DEMO_USERNAME || 'demo';
-  const demoPassword = process.env.DEMO_PASSWORD || 'demo';
+  const { username, password } = demoCredentials();
 
   await page.goto('/login');
-  await page.fill('input[name="username"]', demoUsername);
-  await page.fill('input[name="password"]', demoPassword);
+  await page.fill('input[name="username"]', username);
+  await page.fill('input[name="password"]', password);
   await page.click('button[type="submit"]');
 
   // Should redirect to home page and show the main NL-to-SQL UI
@@ -22,13 +33,11 @@ test.describe('Queryline E2E Tests', () => {
   });
 
   test('should login with configured demo credentials', async ({ page }) => {
-    // Use the same demo credentials configured for the E2E server.
-    const demoUsername = process.env.DEMO_USERNAME || 'demo';
-    const demoPassword = process.env.DEMO_PASSWORD || 'demo';
+    const { username, password } = demoCredentials();
 
     // Fill in the login form with configured credentials
-    await page.fill('input[name="username"]', demoUsername);
-    await page.fill('input[name="password"]', demoPassword);
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
 
     // Submit the form
     await page.click('button[type="submit"]');
@@ -51,12 +60,10 @@ test.describe('Queryline E2E Tests', () => {
   });
 
   test('should allow asking a question after login', async ({ page }) => {
-    // Login first with the configured demo credentials.
-    const demoUsername = process.env.DEMO_USERNAME || 'demo';
-    const demoPassword = process.env.DEMO_PASSWORD || 'demo';
+    const { username, password } = demoCredentials();
 
-    await page.fill('input[name="username"]', demoUsername);
-    await page.fill('input[name="password"]', demoPassword);
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
     await page.click('button[type="submit"]');
 
     // Wait for the main NL-to-SQL UI
@@ -74,12 +81,10 @@ test.describe('Queryline E2E Tests', () => {
   });
 
   test('should persist theme preference', async ({ page }) => {
-    // Login first with the configured demo credentials.
-    const demoUsername = process.env.DEMO_USERNAME || 'demo';
-    const demoPassword = process.env.DEMO_PASSWORD || 'demo';
+    const { username, password } = demoCredentials();
 
-    await page.fill('input[name="username"]', demoUsername);
-    await page.fill('input[name="password"]', demoPassword);
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
     await page.click('button[type="submit"]');
 
     await expect(page.locator('text=Ask your database a question')).toBeVisible();
@@ -139,9 +144,8 @@ test.describe('Queryline E2E Tests', () => {
 });
 
 // Mobile History navigation (Batch E1, Issue #16).
-// NOTE: These run against baseURL http://localhost:3002 (playwright.config.ts).
-// They cannot execute until Issue #13's port mismatch is resolved, but they
-// document the required mobile behaviour and run once that tooling is fixed.
+// These run against baseURL http://localhost:3000 (playwright.config.ts),
+// matching the documented `npm run dev` port.
 test.describe('Mobile navigation (Mobile History reachability)', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -150,8 +154,9 @@ test.describe('Mobile navigation (Mobile History reachability)', () => {
   });
 
   test('mobile user can open the menu and navigate to History', async ({ page }) => {
-    await page.fill('input[name="username"]', process.env.DEMO_USERNAME || 'demo');
-    await page.fill('input[name="password"]', process.env.DEMO_PASSWORD || 'demo');
+    const { username, password } = demoCredentials();
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
     await page.click('button[type="submit"]');
     await expect(page.locator('text=Ask your database a question')).toBeVisible();
 

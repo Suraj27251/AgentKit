@@ -30,6 +30,7 @@ const UNSAFE_KEYWORDS = [
   'CALL',
   'EXEC',
   'EXECUTE',
+  'INTO',
 ];
 
 /**
@@ -88,6 +89,30 @@ function validateSqlSafety(sql) {
     return {
       isSafe: false,
       error: 'SQL must start with SELECT. Only read-only queries are allowed.',
+    };
+  }
+
+  // Block SELECT ... INTO (creates/populates a table - not read-only)
+  if (/\bSELECT\b[\s\S]*?\bINTO\b/i.test(trimmedSql)) {
+    return {
+      isSafe: false,
+      error: 'SQL contains SELECT INTO, which creates or populates a table. Only read-only SELECT queries are allowed.',
+    };
+  }
+
+  // Block TOP ... PERCENT (can return the entire table, bypassing the limit)
+  if (/\bTOP\s+\(?\d+\)?\s*PERCENT\b/i.test(trimmedSql)) {
+    return {
+      isSafe: false,
+      error: 'TOP PERCENT is not allowed because it can bypass the maximum result limit.',
+    };
+  }
+
+  // Block TOP ... WITH TIES (can return more than the maximum result limit)
+  if (/\bTOP\s+\(?\d+\)?\s*WITH\s+TIES\b/i.test(trimmedSql)) {
+    return {
+      isSafe: false,
+      error: 'TOP WITH TIES is not allowed because it can return more than the maximum result limit.',
     };
   }
 
@@ -239,6 +264,21 @@ const validationCases = [
   {
     name: 'Write operations remain rejected',
     input: 'UPDATE Customers SET Status = "Inactive"',
+    expectedSafe: false,
+  },
+  {
+    name: 'SELECT INTO (table creation) is rejected',
+    input: 'SELECT CustomerId, Name INTO CustomerBackup FROM Customers',
+    expectedSafe: false,
+  },
+  {
+    name: 'TOP PERCENT is rejected',
+    input: 'SELECT TOP 100 PERCENT * FROM Customers',
+    expectedSafe: false,
+  },
+  {
+    name: 'TOP WITH TIES is rejected',
+    input: 'SELECT TOP 1000 WITH TIES * FROM Customers ORDER BY CustomerId',
     expectedSafe: false,
   },
 ];

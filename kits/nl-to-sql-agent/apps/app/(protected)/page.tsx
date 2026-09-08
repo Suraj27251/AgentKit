@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { executeFlow } from "@/actions/orchestrate";
 import { useHistory } from "@/lib/history";
+import { useSessionUserId } from "@/components/session-provider";
 import { csvEscapeCell } from "@/lib/csv";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -73,7 +74,8 @@ function HomePageContent() {
   const [copied, setCopied] = useState(false);
   const [filterText, setFilterText] = useState("");
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
-  const { history, addEntry, toggleFavorite } = useHistory();
+  const userId = useSessionUserId();
+  const { history, addEntry, toggleFavorite } = useHistory(userId);
   const router = useRouter();
   const searchParams = useSearchParams();
 

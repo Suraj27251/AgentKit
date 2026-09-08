@@ -7,6 +7,7 @@ import { LogOut, Menu, X } from 'lucide-react';
 import ThemeToggle from '@/app/(protected)/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
 import { clearStoredHistory } from '@/lib/history';
+import { useSessionUserId } from '@/components/session-provider';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
 export default function TopNav() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const userId = useSessionUserId();
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -62,7 +64,7 @@ export default function TopNav() {
           >
             {menuOpen ? <X className="h-[18px] w-[18px]" /> : <Menu className="h-[18px] w-[18px]" />}
           </button>
-          <form action="/logout" method="post" onSubmit={clearStoredHistory}>
+          <form action="/logout" method="post" onSubmit={() => clearStoredHistory(userId)}>
             <button
               type="submit"
               title="Sign out"

@@ -25,18 +25,18 @@ Ask your database a question in plain English. Get back a validated `SELECT` que
 
 ## 📚 Table of Contents
 
-- [Overview](#overview)
-- [The Problem](#the-problem)
-- [How It Works](#how-it-works)
-- [Architecture](#architecture)
-- [Key Features](#key-features)
-- [Demo Database](#demo-database)
-- [Tech Stack](#tech-stack)
-- [Requirements](#requirements)
-- [Environment Variables](#environment-variables)
-- [Demo Access & Authentication](#demo-access--authentication)
-- [Local Development](#local-development)
-- [Common Failure Modes](#common-failure-modes)
+- [Overview](#-overview)
+- [The Problem](#-the-problem)
+- [How It Works](#-how-it-works)
+- [Architecture](#-architecture)
+- [Key Features](#-key-features)
+- [Demo Database](#-demo-database)
+- [Tech Stack](#-tech-stack)
+- [Requirements](#-requirements)
+- [Environment Variables](#-environment-variables)
+- [Demo Access & Authentication](#-demo-access--authentication)
+- [Local Development](#-local-development)
+- [Common Failure Modes](#-common-failure-modes)
 
 ---
 
@@ -412,7 +412,7 @@ These extensions can be adopted incrementally, each building on the solid, safet
 
 <div align="center">
 
-**[⬆ Back to top](#queryline)**
+**[⬆ Back to top](#-queryline)**
 
 Made with ⚡ [Lamatic AgentKit](https://lamatic.ai)
 

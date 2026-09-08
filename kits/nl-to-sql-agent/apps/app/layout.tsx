@@ -37,8 +37,12 @@ export default function RootLayout({
             __html: `
               try {
                 var theme = localStorage.getItem('nl-to-sql-theme');
+                // Normalize the stored theme: only 'dark' and 'light' are
+                // accepted directly; every other value (null, 'system', or an
+                // unrecognized token) resolves from the OS preference so the
+                // pre-hydration result matches ThemeToggle's system handling.
                 var useDark = theme === 'dark' ||
-                  ((theme === null || theme === 'system') &&
+                  (theme !== 'light' &&
                     window.matchMedia('(prefers-color-scheme: dark)').matches);
                 if (useDark) {
                   document.documentElement.classList.add('dark');

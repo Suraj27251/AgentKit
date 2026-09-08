@@ -1,9 +1,11 @@
 # Queryline
 
 ## Overview
+
 Queryline turns plain-English questions into safe, read-only Microsoft SQL Server (T-SQL) queries. A business user types a question, and the agent generates a `SELECT` statement, validates it for safety, optionally executes it against a read-only SQL Server database, and returns both the SQL and a plain-language explanation.
 
 ## Purpose
+
 The goal is to remove the barrier of knowing SQL: anyone can ask a question in natural language and get a safe, governed answer. The system keeps things read-only by automatically rejecting any query that is not a single `SELECT`, and by bounding result sizes with SQL Server `TOP`.
 
 ## Flows
@@ -11,11 +13,13 @@ The goal is to remove the barrier of knowing SQL: anyone can ask a question in n
 ### `nl-to-sql-flow` (Active Flow ID: `0b890b4d-dd30-4f33-9663-4311c896e1b5`)
 
 #### Trigger
+
 - **Invocation type:** API request via a GraphQL trigger node (`API Request`) or a direct Lamatic SDK call.
 - **Expected input shape:**
   - `question` (string): The natural language question about the database.
 
 #### What it does
+
 Step-by-step walkthrough of the node chain:
 
 1. **API Request (triggerNode / graphqlNode)** — receives the user's `question`.
@@ -37,9 +41,11 @@ Step-by-step walkthrough of the node chain:
 8. **API Response (graphqlResponseNode)** — returns the structured result to the caller.
 
 #### When to use this flow
+
 Use this flow whenever a user supplies a natural language question about a Microsoft SQL Server database and expects a safe, read-only SQL query, a plain-language explanation, and optionally the query results. If you have a single data-querying entrypoint, route all such requests here.
 
 #### Output
+
 The flow returns a JSON object with these fields:
 
 - `sql` — the validated and normalized `SELECT` query (with `TOP` enforced to maximum 1000).
@@ -55,6 +61,7 @@ The flow returns a JSON object with these fields:
 The Next.js app consumes this contract in `apps/actions/orchestrate.ts`, which normalizes the flow fields and derives the `summary`, `insights`, `suggestions`, and `followUpQuestions` fields for the UI.
 
 #### Dependencies
+
 - **Lamatic runtime & project configuration** — `LAMATIC_API_URL`, `LAMATIC_PROJECT_ID`, `LAMATIC_API_KEY`.
 - **Flow selection / routing** — `NL_TO_SQL_FLOW_ID` (the deployed Flow ID for `nl-to-sql-flow`).
 - **LLM provider(s)** — configured in Lamatic Studio for the SQL-generation and explanation nodes.
@@ -64,6 +71,7 @@ The Next.js app consumes this contract in `apps/actions/orchestrate.ts`, which n
 - **Constitution** — guardrails in `constitutions/default.md`.
 
 ## Guardrails
+
 - **Prohibited tasks**
   - Must not generate or execute write/DDL operations (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `CALL`, `EXEC`, `EXECUTE`).
   - Must not execute multiple SQL statements in a single request.
@@ -91,6 +99,7 @@ The Next.js app consumes this contract in `apps/actions/orchestrate.ts`, which n
 | Next.js App (UI) | User-facing chat interface | App runtime; consumes the env vars above |
 
 ## Environment Setup
+
 - `LAMATIC_API_URL` — Base URL for the Lamatic API.
 - `LAMATIC_PROJECT_ID` — Lamatic project identifier.
 - `LAMATIC_API_KEY` — API key for the Lamatic project.
@@ -101,6 +110,7 @@ The Next.js app consumes this contract in `apps/actions/orchestrate.ts`, which n
 - `MSSQL_SERVER`, `MSSQL_PORT`, `MSSQL_DATABASE`, `MSSQL_USER` — Optional SQL Server connection hints for the flow's node (credentials are typically stored in Lamatic Studio).
 
 ## Quickstart
+
 1. In Lamatic Studio, create a project, deploy the `nl-to-sql-flow` ("Queryline"), and copy the resulting Flow ID.
 2. In `apps/`, copy `.env.example` to `.env.local` and set `LAMATIC_API_URL`, `LAMATIC_PROJECT_ID`, `LAMATIC_API_KEY`, and `NL_TO_SQL_FLOW_ID`. To use the built-in demo login, also set `DEMO_AUTH_ENABLED=true` along with `DEMO_USERNAME` and `DEMO_PASSWORD`.
 3. Configure the Microsoft SQL Server connection in Lamatic Studio for the `mssqlNode` (a read-only user is recommended).
