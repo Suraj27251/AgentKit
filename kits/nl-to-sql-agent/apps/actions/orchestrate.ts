@@ -186,6 +186,16 @@ export async function executeFlow(
   data?: NLToSQLResponse;
   error?: string;
 }> {
+  // Validate the action input before touching any helper that calls .trim()
+  // or accesses the question (e.g. isApprovedDemoQuestion) so malformed input
+  // returns a controlled error instead of throwing outside the try block.
+  if (typeof input?.question !== "string" || input.question.trim().length === 0) {
+    return {
+      success: false,
+      error: "A question is required.",
+    };
+  }
+
   const session = await getSession();
   const isDemo = session.isLoggedIn && session.isDemo === true;
   const isApproved = isApprovedDemoQuestion(input.question);

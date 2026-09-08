@@ -326,6 +326,94 @@ const testCases = [
     expectedSafe: false,
     expectedErrorPattern: /WITH TIES/i,
   },
+
+  // === Top-level set operations must not exceed MAX_RESULT_ROWS ===
+  {
+    name: 'Top-level UNION ALL is rejected (row limit bypass)',
+    input: 'SELECT TOP 100 FROM A UNION ALL SELECT TOP 100 FROM B',
+    expectedSafe: false,
+    expectedErrorPattern: /Set operations/i,
+  },
+  {
+    name: 'Top-level UNION is rejected (row limit bypass)',
+    input: 'SELECT * FROM A UNION SELECT * FROM B',
+    expectedSafe: false,
+    expectedErrorPattern: /Set operations/i,
+  },
+  {
+    name: 'Top-level EXCEPT is rejected (row limit bypass)',
+    input: 'SELECT * FROM A EXCEPT SELECT * FROM B',
+    expectedSafe: false,
+    expectedErrorPattern: /Set operations/i,
+  },
+  {
+    name: 'Top-level INTERSECT is rejected (row limit bypass)',
+    input: 'SELECT * FROM A INTERSECT SELECT * FROM B',
+    expectedSafe: false,
+    expectedErrorPattern: /Set operations/i,
+  },
+  {
+    name: 'Top-level UNION ALL lower case is rejected',
+    input: 'select * from A union all select * from B',
+    expectedSafe: false,
+    expectedErrorPattern: /Set operations/i,
+  },
+  {
+    name: 'Nested set operator inside a subquery stays safe',
+    input: 'SELECT o.id FROM (SELECT id FROM A UNION SELECT id FROM B) o',
+    expectedSafe: true,
+    expectedSql: 'SELECT TOP 1000 o.id FROM (SELECT id FROM A UNION SELECT id FROM B) o',
+    expectedCapped: false,
+  },
+  {
+    name: 'UNION inside a comment is not treated as a set operator',
+    input: 'SELECT * FROM Orders /* order UNION backup */',
+    expectedSafe: true,
+    expectedSql: 'SELECT TOP 1000 * FROM Orders /* order UNION backup */',
+    expectedCapped: false,
+  },
+  {
+    name: 'UNION inside a string literal is not treated as a set operator',
+    input: "SELECT 'UNION ALL select from B' AS label FROM Customers",
+    expectedSafe: true,
+    expectedSql: "SELECT TOP 1000 'UNION ALL select from B' AS label FROM Customers",
+    expectedCapped: false,
+  },
+  {
+    name: 'UNION as the tail of an identifier is ignored',
+    input: 'SELECT union_id FROM Customers',
+    expectedSafe: true,
+    expectedSql: 'SELECT TOP 1000 union_id FROM Customers',
+    expectedCapped: false,
+  },
+
+  // === Stateful scanner: an apostrophe in a -- comment must not hide a later statement ===
+  {
+    name: 'Unbalanced apostrophe in a comment hides no write statement',
+    input: "SELECT 1 -- don't\n; DROP TABLE Customers --'",
+    expectedSafe: false,
+    expectedErrorPattern: /write or DDL/i,
+  },
+  {
+    name: 'Unbalanced apostrophe in a comment hides no later statement',
+    input: "SELECT 1 -- don't\n; SELECT 2 --'",
+    expectedSafe: false,
+    expectedErrorPattern: /Multiple SQL statements/i,
+  },
+  {
+    name: 'Comment markers inside a string literal are not comments',
+    input: "SELECT '-- hidden' AS label FROM Customers",
+    expectedSafe: true,
+    expectedSql: "SELECT TOP 1000 '-- hidden' AS label FROM Customers",
+    expectedCapped: false,
+  },
+  {
+    name: 'Block comment markers inside a string literal are not comments',
+    input: "SELECT '/* hidden DROP */' AS label FROM Customers",
+    expectedSafe: true,
+    expectedSql: "SELECT TOP 1000 '/* hidden DROP */' AS label FROM Customers",
+    expectedCapped: false,
+  },
   {
     name: 'Empty SQL',
     input: '',
@@ -422,8 +510,20 @@ stripCheck(
   'SELECT  FROM Customers'
 );
 
+stripCheck(
+  'Comment markers inside a string literal are ignored',
+  "SELECT '-- x */ DROP'",
+  'SELECT  '
+);
+
+stripCheck(
+  'Apostrophe inside a line comment does not open a literal',
+  "SELECT 1 -- don't\n; SELECT 2 --'",
+  'SELECT 1  \n; SELECT 2  '
+);
+
 // Summary
-const stripCheckCount = 3;
+const stripCheckCount = 5;
 const totalTests = testCases.length + stripCheckCount;
 console.log(`\n${'='.repeat(60)}`);
 console.log(`📊 Test Summary:`);

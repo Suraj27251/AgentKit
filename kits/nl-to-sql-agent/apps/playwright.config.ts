@@ -1,4 +1,24 @@
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
+
 import { defineConfig, devices } from '@playwright/test';
+
+// Load .env.local into the Playwright process so the TEST process (not just the
+// spawned webServer) sees DEMO_USERNAME / DEMO_PASSWORD. Playwright loads this
+// config in the main and worker processes, so mutating process.env here makes
+// the credentials available to example.spec.ts during execution.
+// Never overwrite variables already exported by the shell/CI environment.
+const envFile = resolve(process.cwd(), '.env.local');
+if (existsSync(envFile)) {
+  for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+    const eq = trimmed.indexOf('=');
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).replace(/^["']|["']$/g, '');
+    if (key && !(key in process.env)) process.env[key] = value;
+  }
+}
 
 // Standardize the E2E server on the app's documented development port (3000)
 // so baseURL and the Playwright-started server always agree. See README:

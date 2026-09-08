@@ -8,6 +8,9 @@
  * - Blocks SELECT ... INTO (table creation, not read-only)
  * - Blocks TOP ... PERCENT (can return the whole table, bypassing row limit)
  * - Blocks TOP ... WITH TIES (can return > MAX_RESULT_ROWS rows)
+ * - Blocks top-level set operations (UNION, UNION ALL, EXCEPT, INTERSECT) whose
+ *   combined result can exceed MAX_RESULT_ROWS because a TOP on one branch does
+ *   not limit the combined set
  * - Enforces maximum result limit of 1000 rows by normalizing TOP clauses
  *
  * Input: {{LLMNode_sql_gen.output.generatedResponse}} (generated SQL)
@@ -191,20 +194,139 @@ function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: 
  * Remove quoted string literals and comments so keyword checks do not match
  * text that lives inside data values or comments.
  *
- * Stripped text is replaced with a single space (not an empty string) so that
- * two surrounding SQL tokens cannot be concatenated into one. For example,
- * `SELECT CustomerId blockComment INTO Audit` must not collapse `CustomerId`
- * and `INTO` into one token, which would otherwise evade the SELECT INTO
- * check. Whitespace replacement is always safe: it can never forge a keyword.
+ * This is a single-pass, stateful scanner rather than a sequence of regex
+ * substitutions, so comment and literal markers are interpreted only in the
+ * ACTIVE parser state:
+ *   - An apostrophe inside a `--` line comment cannot open (or close the
+ *     search for) a string literal, so a trailing unbalanced quote cannot hide
+ *     a later statement that reaches database execution.
+ *   - `--` or `/*` inside a string literal are literal data, not comments.
+ *   - A comment inside a string literal is data; a `'` inside a comment is part
+ *     of the comment.
+ *
+ * Each consumed region (literal or comment) is replaced with a single space so
+ * that two surrounding SQL tokens cannot be concatenated into one — for
+ * example, `SELECT CustomerId blockComment INTO Audit` must not collapse
+ * `CustomerId` and `INTO` into one token, which would otherwise evade the
+ * SELECT INTO check. Whitespace replacement is always safe: it can never forge
+ * a keyword.
+ *
+ * An unterminated literal is left verbatim (its contents stay visible to the
+ * safety checks) so it can never swallow text that follows it.
  */
 function stripQuotedStringsAndComments(sql: string): string {
-  return sql
-    // Remove single- and double-quoted string literals (including '' / "" escapes)
-    .replace(/'(?:[^']|'')*'/g, ' ')
-    .replace(/"(?:[^"]|"")*"/g, ' ')
-    // Remove single-line and block comments, preserving token boundaries
-    .replace(/--[^\n]*/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+  let out = '';
+  let i = 0;
+  const n = sql.length;
+
+  const findClosingQuote = (quote: string): number => {
+    // Returns the index of the closing quote ('' / "" escapes honored), or -1
+    // when the literal runs to end of input without closing.
+    let j = i + 1;
+    while (j < n) {
+      if (sql[j] === quote) {
+        if (sql[j + 1] === quote) { j += 2; continue; }
+        return j;
+      }
+      j++;
+    }
+    return -1;
+  };
+
+  while (i < n) {
+    const ch = sql[i];
+    const next = sql[i + 1];
+
+    // Single-quoted string literal.
+    if (ch === "'") {
+      const close = findClosingQuote("'");
+      if (close === -1) {
+        // Unterminated literal: keep it verbatim so following tokens stay visible.
+        out += ch;
+        i++;
+        continue;
+      }
+      out += ' ';
+      i = close + 1;
+      continue;
+    }
+
+    // Double-quoted string literal / quoted identifier.
+    if (ch === '"') {
+      const close = findClosingQuote('"');
+      if (close === -1) {
+        out += ch;
+        i++;
+        continue;
+      }
+      out += ' ';
+      i = close + 1;
+      continue;
+    }
+
+    // Line comment (-- to end of line; the newline itself is preserved).
+    if (ch === '-' && next === '-') {
+      out += ' ';
+      i += 2;
+      while (i < n && sql[i] !== '\n') i++;
+      continue;
+    }
+
+    // Block comment (/* ... */).
+    if (ch === '/' && next === '*') {
+      out += ' ';
+      i += 2;
+      while (i < n && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+      i = Math.min(i + 2, n);
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+
+  return out;
+}
+
+/**
+ * Detect a SET operator (UNION / UNION ALL / EXCEPT / INTERSECT) at the TOP
+ * level of the query (parenthesis depth 0). A TOP clause applied to one branch
+ * of a set operation does not limit the combined result in SQL Server, so such
+ * queries would be able to return more than MAX_RESULT_ROWS rows. Set operators
+ * inside nested subqueries are unaffected.
+ *
+ * Runs on the literal/comment-stripped SQL, so markers inside data are ignored
+ * and only real code (with its original parenthesis depth) is examined.
+ */
+function hasTopLevelSetOperator(strippedSql: string): boolean {
+  const setOperators = ['UNION', 'EXCEPT', 'INTERSECT'];
+  let depth = 0;
+  let i = 0;
+  const n = strippedSql.length;
+
+  while (i < n) {
+    const ch = strippedSql[i];
+
+    if (ch === '(') { depth++; i++; continue; }
+    if (ch === ')') { if (depth > 0) depth--; i++; continue; }
+
+    if (depth === 0) {
+      for (const op of setOperators) {
+        if (
+          i + op.length <= n &&
+          strippedSql.slice(i, i + op.length).toUpperCase() === op &&
+          (i === 0 || !/[a-zA-Z0-9_]/.test(strippedSql[i - 1])) &&
+          (i + op.length >= n || !/[a-zA-Z0-9_]/.test(strippedSql[i + op.length]))
+        ) {
+          return true;
+        }
+      }
+    }
+
+    i++;
+  }
+
+  return false;
 }
 
 /**
@@ -273,6 +395,16 @@ function validateSqlSafety(sql: string): { isSafe: boolean; error: string } {
     return {
       isSafe: false,
       error: 'TOP WITH TIES is not allowed because it can return more than the maximum result limit.',
+    };
+  }
+
+  // Block top-level set operations (UNION / UNION ALL / EXCEPT / INTERSECT).
+  // A TOP applied to a single branch does not limit the combined result in SQL
+  // Server, so these queries could return more than MAX_RESULT_ROWS rows.
+  if (hasTopLevelSetOperator(stripped)) {
+    return {
+      isSafe: false,
+      error: 'Set operations (UNION, EXCEPT, INTERSECT) are not allowed because they can exceed the maximum result limit.',
     };
   }
 

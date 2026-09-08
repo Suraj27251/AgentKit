@@ -306,7 +306,18 @@ Open **[http://localhost:3000](http://localhost:3000)**, sign in with your confi
 | `npm run build` | Create an optimized production build |
 | `npm run start` | Serve the production build |
 | `npm run lint` | Run ESLint |
+| `npm run test` | Run the kit's 11 standalone unit test suites (via `tsx`, so Node 20+ works) |
 | `npm run test:e2e` | Run the Playwright E2E suite (starts its own dev server on `localhost:3000`) |
+
+### Unit tests
+
+The kit ships standalone `node` test suites in `tests/` that exercise the real production helpers (validation script, demo-question allowlist, history, CSV serialization, Lamatic transport, etc.). Run them together with:
+
+```bash
+npm run test
+```
+
+The command loads TypeScript modules through `tsx`, so it works on Node 20 and later. Individual suites can also be run directly with `node tests/<name>.test.js` (Node 24 type-strips the `.ts` imports on its own).
 
 ### E2E testing
 
