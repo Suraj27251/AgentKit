@@ -14,6 +14,21 @@ import {
 const DEMO_RESTRICTION_MESSAGE =
   "Demo account restriction: This public demo supports the predefined example queries shown in the Workspace. Please select one of the available demo questions to see the full NL-to-SQL flow.";
 
+const SCHEMA_CONFIGURATION_MESSAGE =
+  "Query service configuration error: the approved database schema is unavailable.";
+
+function getApprovedDatabaseSchema(): string | null {
+  const schema = process.env.NL_TO_SQL_DATABASE_SCHEMA;
+  if (!schema) return null;
+
+  try {
+    const parsed = JSON.parse(schema);
+    return parsed && typeof parsed === "object" ? JSON.stringify(parsed) : null;
+  } catch {
+    return null;
+  }
+}
+
 export type NLToSQLResponse = {
   sql: string;
   explanation: string;
@@ -235,6 +250,11 @@ export async function executeFlow(
     return mockResponse();
   }
 
+  const schema = getApprovedDatabaseSchema();
+  if (!schema) {
+    return { success: false, error: SCHEMA_CONFIGURATION_MESSAGE };
+  }
+
   try {
     console.log("Executing NL-to-SQL flow", {
       questionLength: input.question.length,
@@ -242,6 +262,7 @@ export async function executeFlow(
 
     const resData = await executeLamaticFlow(NL_TO_SQL_FLOW_ID, {
       question: input.question,
+      schema,
     });
 
     console.log("Lamatic status:", resData.status);

@@ -85,6 +85,7 @@ const vm = require('vm');
 const { stripTypeScriptTypes } = require('node:module');
 
 let moduleJs;
+let preparationFailed = false;
 try {
   const stripped = stripTypeScriptTypes(orchestrateSource, { mode: 'transform' });
   moduleJs = stripped
@@ -103,6 +104,7 @@ try {
     .replace(/^export (async function|function|const|class) /gm, '$1 ');
 } catch (e) {
   test('orchestrate.ts is preparable for the behavioral harness', false, e.message);
+  preparationFailed = true;
 }
 
 function loadOrchestrate(getSessionStub) {
@@ -115,7 +117,12 @@ function loadOrchestrate(getSessionStub) {
   }
   const captured = { flowCalls: [] };
   const sandbox = {
-    process: { env: { MOCK_LAMATIC: 'true' } },
+    process: {
+      env: {
+        MOCK_LAMATIC: 'true',
+        NL_TO_SQL_DATABASE_SCHEMA: '{"tables":[{"name":"Customers","columns":["CustomerId"]}]}',
+      },
+    },
     console,
     setTimeout,
     require: (id) => {
@@ -157,7 +164,15 @@ function loadOrchestrate(getSessionStub) {
   return { exports: sandbox.module.exports, captured, thrown };
 }
 
-(async () => {
+if (preparationFailed) {
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`📊 Test Summary:`);
+  console.log(`   ✅ Passed: ${passed}/${passed + failed}`);
+  console.log(`   ❌ Failed: ${failed}/${passed + failed}`);
+  console.log(`${'='.repeat(60)}`);
+  process.exitCode = 1;
+} else {
+  (async () => {
   const demoModule = loadOrchestrate(() => ({ isLoggedIn: true, isDemo: true }));
 
   if (demoModule.thrown) {
@@ -180,6 +195,18 @@ function loadOrchestrate(getSessionStub) {
       demoModule.captured.flowCalls.length === 0 &&
         restricted.error !== 'Mock response returned'
     );
+
+    const approvedResult = await demoModule.exports.executeFlow({
+      question: 'How many customers are active?',
+    });
+    const approvedCall = demoModule.captured.flowCalls[0];
+    test(
+      'Approved demo flow receives the configured schema JSON',
+      approvedResult.success === true &&
+        approvedCall &&
+        approvedCall.payload.question === 'How many customers are active?' &&
+        approvedCall.payload.schema === '{"tables":[{"name":"Customers","columns":["CustomerId"]}]}'
+    );
   }
 
   console.log(`\n${'='.repeat(60)}`);
@@ -197,4 +224,4 @@ function loadOrchestrate(getSessionStub) {
     // failed and yields a nonzero exit on every platform.
     throw new Error(`Some tests failed: ${failed}/${passed + failed}`);
   }
-})();
+})(); }

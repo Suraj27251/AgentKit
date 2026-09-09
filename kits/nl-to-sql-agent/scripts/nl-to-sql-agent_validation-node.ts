@@ -173,9 +173,9 @@ function findOuterTop(sql: string): { value: number; clauseStart: number; clause
  * @returns Object with normalized SQL and a flag indicating if limit was capped
  */
 /**
- * Find the position where a TOP clause should be inserted for a SQL query.
- * Returns the index where "TOP 1000" should be placed, or -1 if we cannot
- * confidently locate the insertion point.
+ * Find the position immediately after the outer SELECT keyword. TOP belongs
+ * before DISTINCT or ALL, and needs a separator when SELECT is immediately
+ * followed by a comment or parenthesis.
  */
 function findSelectInsertionPoint(sql: string): number {
   let depth = 0;
@@ -253,23 +253,7 @@ function findSelectInsertionPoint(sql: string): number {
       const after = afterPos >= n || !/[a-zA-Z0-9_]/.test(sql[afterPos]);
 
       if (before && after) {
-        // Found outer SELECT, return position after "SELECT"
-        let j = i + 6;
-        // Skip optional ALL or DISTINCT modifier
-        while (j < n && /\s/.test(sql[j])) j++;
-
-        // Check for DISTINCT
-        if (j + 8 <= n && sql.slice(j, j + 8).toUpperCase() === 'DISTINCT') {
-          j += 8;
-          while (j < n && /\s/.test(sql[j])) j++;
-        }
-        // Check for ALL (less common, but valid)
-        else if (j + 3 <= n && sql.slice(j, j + 3).toUpperCase() === 'ALL') {
-          j += 3;
-          while (j < n && /\s/.test(sql[j])) j++;
-        }
-
-        return j;
+        return i + 6;
       }
     }
 
@@ -295,8 +279,8 @@ function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: 
       };
     }
 
-    // Insert "TOP MAX_RESULT_ROWS " at the insertion point
-    const normalizedSql = sql.slice(0, insertionPoint) + `TOP ${MAX_RESULT_ROWS} ` + sql.slice(insertionPoint);
+    const suffix = /\s/.test(sql[insertionPoint] || '') ? '' : ' ';
+    const normalizedSql = sql.slice(0, insertionPoint) + ` TOP ${MAX_RESULT_ROWS}${suffix}` + sql.slice(insertionPoint);
 
     return {
       normalizedSql,

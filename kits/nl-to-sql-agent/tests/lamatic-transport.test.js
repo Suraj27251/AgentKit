@@ -379,7 +379,16 @@ function scenarioBehavior(flowId) {
 
 const scenarioModule = loadRealModule(BASE_ENV, scenarioBehavior);
 
+function printSummary() {
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`📊 Test Summary:`);
+  console.log(`   ✅ Passed: ${passed}/${passed + failed}`);
+  console.log(`   ❌ Failed: ${failed}/${passed + failed}`);
+  console.log(`${'='.repeat(60)}`);
+}
+
 (async () => {
+  try {
   await httpsModule.exports.executeLamaticFlow('flow-1', { question: 'Show me all users' });
   const firstCall = httpsModule.captured.calls[0];
 
@@ -436,17 +445,16 @@ const scenarioModule = loadRealModule(BASE_ENV, scenarioBehavior);
       e && e.name === 'LamaticClientError' && e.message === 'No response returned from Lamatic workflow');
   }
 
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`📊 Test Summary:`);
-  console.log(`   ✅ Passed: ${passed}/${passed + failed}`);
-  console.log(`   ❌ Failed: ${failed}/${passed + failed}`);
-  console.log(`${'='.repeat(60)}`);
-
-  if (failed === 0) {
-    console.log('🎉 All tests passed!');
-    process.exit(0);
-  } else {
-    console.log('⚠️  Some tests failed.');
-    process.exit(1);
+  } catch (error) {
+    test('Behavioral transport harness completes without an unexpected error', false,
+      error instanceof Error ? error.message : String(error));
+  } finally {
+    printSummary();
+    if (failed === 0) {
+      console.log('🎉 All tests passed!');
+    } else {
+      console.log('⚠️  Some tests failed.');
+      process.exitCode = 1;
+    }
   }
 })();
