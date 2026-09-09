@@ -18,8 +18,14 @@ if (!process.env.LAMATIC_API_KEY) {
   );
 }
 
-const sqlFlowEnvKey = config.steps[0].envKey;
+const sqlFlowStep = config.steps.find(s => s.id === 'nl-to-sql-flow');
+if (!sqlFlowStep) {
+  throw new Error(
+    'nl-to-sql-flow step not found in lamatic.config.ts. Please check the configuration.'
+  );
+}
 
+const sqlFlowEnvKey = sqlFlowStep.envKey;
 const nlToSqlFlowId = process.env[sqlFlowEnvKey];
 if (!nlToSqlFlowId) {
   throw new Error(

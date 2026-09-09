@@ -8,5 +8,12 @@ Follow these rules:
 5. The query must be syntactically correct for Microsoft SQL Server (T-SQL).
 6. Use TOP instead of LIMIT for row limiting.
 7. Focus on answering the question directly and efficiently.
+8. Do NOT use these unsafe constructs (they will be rejected by the validator):
+   - SELECT ... INTO (creates tables)
+   - TOP ... PERCENT (can return entire table)
+   - TOP ... WITH TIES (can exceed result limit)
+   - UNION, UNION ALL, EXCEPT, INTERSECT at top level (combined results can exceed limit)
+   - OPENROWSET, OPENQUERY, OPENDATASOURCE, OPENXML (outbound connections)
+   - INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE, MERGE, EXEC, EXECUTE (write/DDL operations)
 
 The schema is provided as a JSON object with tables and their columns.

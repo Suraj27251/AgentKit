@@ -79,7 +79,8 @@ export function useHistory(userId?: string | null) {
   // Reload when the authenticated user changes (login as a different account).
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setHistory(parseStoredHistory(localStorage.getItem(storageKey)));
+    const stored = parseStoredHistory(localStorage.getItem(storageKey));
+    setHistory(stored);
     setHydratedKey(storageKey);
   }, [storageKey]);
 
