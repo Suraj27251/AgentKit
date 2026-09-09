@@ -113,6 +113,8 @@ console.log(`   ❌ Failed: ${failed}/${passed + failed}`);
 console.log("============================================================\n");
 
 if (failed > 0) {
-  process.exit(1);
+  // Let node --test report this file as a failed subtest. A forced process
+  // exit can race tsx cleanup on Windows and hide the actual assertion error.
+  throw new Error(`Some tests failed: ${failed}/${passed + failed}`);
 }
 console.log("🎉 All tests passed!");
