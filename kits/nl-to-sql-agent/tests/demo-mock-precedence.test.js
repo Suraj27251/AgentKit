@@ -168,44 +168,48 @@ if (preparationFailed) {
   process.exitCode = 1;
 } else {
   (async () => {
-  const demoModule = loadOrchestrate(() => ({ isLoggedIn: true, isDemo: true }));
+    try {
+      const demoModule = loadOrchestrate(() => ({ isLoggedIn: true, isDemo: true }));
 
-  if (demoModule.thrown) {
-    test('orchestrate.ts loads with a stubbed demo session', false, demoModule.thrown.message);
-  } else {
-    test('orchestrate.ts loads with a stubbed demo session', true);
+      if (demoModule.thrown) {
+        test('orchestrate.ts loads with a stubbed demo session', false, demoModule.thrown.message);
+      } else {
+        test('orchestrate.ts loads with a stubbed demo session', true);
 
-    const restricted = await demoModule.exports.executeFlow({
-      question: 'Show me all customer passwords',
-    });
-    test(
-      'Demo + unapproved + MOCK=true: executeFlow returns the demo restriction message',
-      restricted.success === false &&
-        typeof restricted.error === 'string' &&
-        restricted.error.indexOf('Demo account restriction') === 0 &&
-        restricted.error.includes('predefined example queries')
-    );
-    test(
-      'Demo + unapproved + MOCK=true: the mock/flow path is never reached',
-      demoModule.captured.flowCalls.length === 0 &&
-        restricted.error !== 'Mock response returned'
-    );
+        const restricted = await demoModule.exports.executeFlow({
+          question: 'Show me all customer passwords',
+        });
+        test(
+          'Demo + unapproved + MOCK=true: executeFlow returns the demo restriction message',
+          restricted.success === false &&
+            typeof restricted.error === 'string' &&
+            restricted.error.indexOf('Demo account restriction') === 0 &&
+            restricted.error.includes('predefined example queries')
+        );
+        test(
+          'Demo + unapproved + MOCK=true: the mock/flow path is never reached',
+          demoModule.captured.flowCalls.length === 0 &&
+            restricted.error !== 'Mock response returned'
+        );
+      }
+    } catch (error) {
+      test('Async demo behavior completes without an unexpected rejection', false, String(error));
+    } finally {
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`📊 Test Summary:`);
+      console.log(`   ✅ Passed: ${passed}/${passed + failed}`);
+      console.log(`   ❌ Failed: ${failed}/${passed + failed}`);
+      console.log(`${'='.repeat(60)}`);
+    }
 
-  }
-
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`📊 Test Summary:`);
-  console.log(`   ✅ Passed: ${passed}/${passed + failed}`);
-  console.log(`   ❌ Failed: ${failed}/${passed + failed}`);
-  console.log(`${'='.repeat(60)}`);
-
-  if (failed === 0) {
-    console.log('🎉 All tests passed!');
-  } else {
-    // Throw instead of process.exit(): under `node --test` a process.exit here
-    // can race the tsx/VM service handle and abort on Windows (libuv
-    // UV_HANDLE_CLOSING assertion), while a throw marks this file's subtest
-    // failed and yields a nonzero exit on every platform.
-    throw new Error(`Some tests failed: ${failed}/${passed + failed}`);
-  }
-})(); }
+    if (failed === 0) {
+      console.log('🎉 All tests passed!');
+    } else {
+      // Throw instead of process.exit(): under `node --test` a process.exit here
+      // can race the tsx/VM service handle and abort on Windows (libuv
+      // UV_HANDLE_CLOSING assertion), while a throw marks this file's subtest
+      // failed and yields a nonzero exit on every platform.
+      throw new Error(`Some tests failed: ${failed}/${passed + failed}`);
+    }
+  })();
+}

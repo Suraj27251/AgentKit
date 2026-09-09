@@ -234,8 +234,13 @@ const topNavSource = fs.readFileSync(
 );
 test(
   'TopNav clears the namespaced history via clearStoredHistory(userId)',
-  /clearStoredHistory\(userId\)/.test(topNavSource) &&
-    /action="\/logout"\s+method="post"\s+onSubmit=\{\(\) => clearStoredHistory\(userId\)\}/.test(topNavSource)
+  /clearStoredHistory\(userId\)/.test(topNavSource)
+);
+test('TopNav logout form posts to /logout', /action="\/logout"/.test(topNavSource));
+test('TopNav logout form uses POST', /method="post"/.test(topNavSource));
+test(
+  'TopNav logout form clears history on submit',
+  /onSubmit=\{\(\) => clearStoredHistory\(userId\)\}/.test(topNavSource)
 );
 
 test(

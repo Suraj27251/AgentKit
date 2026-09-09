@@ -58,7 +58,16 @@ export default function HistoryPage() {
               </Button>
             </div>
             {history.length > 0 && (
-              <Button variant="outline" size="sm" onClick={clearHistory} className="gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to clear all history? This action cannot be undone.')) {
+                    clearHistory();
+                  }
+                }}
+                className="gap-1"
+              >
                 <Trash2 className="h-4 w-4" />
                 Clear All
               </Button>

@@ -22,7 +22,7 @@
 
 const { loadProductionValidator } = require('./load-validator');
 
-const { stripQuotedStringsAndComments, validateAndNormalizeSql } = loadProductionValidator();
+const { normalizeTopClause, stripQuotedStringsAndComments, validateAndNormalizeSql } = loadProductionValidator();
 
 // ============================================================================
 // TEST CASES
@@ -597,9 +597,35 @@ stripCheck(
   'SELECT 1  \r; SELECT 2'
 );
 
+[
+  ['undefined input', undefined],
+  ['null input', null],
+  ['number input', 42],
+  ['object input', { sql: 'SELECT 1' }],
+].forEach(([name, input]) => {
+  const result = validateAndNormalizeSql(input);
+  const passed = result.isSafe === false && result.safeSql === '' && /Invalid SQL input/.test(result.error);
+  if (passed) {
+    passedTests++;
+    console.log(`✅ PASS: ${name} fails closed`);
+  } else {
+    failedTests++;
+    console.log(`❌ FAIL: ${name} fails closed`);
+  }
+});
+
+const uncappable = normalizeTopClause('WITH data AS (SELECT 1)');
+if (uncappable.cappable === false && uncappable.normalizedSql === 'WITH data AS (SELECT 1)') {
+  passedTests++;
+  console.log('✅ PASS: Uncappable TOP normalization reports failure explicitly');
+} else {
+  failedTests++;
+  console.log('❌ FAIL: Uncappable TOP normalization reports failure explicitly');
+}
+
 // Summary
 const stripCheckCount = 6;
-const totalTests = testCases.length + stripCheckCount;
+const totalTests = testCases.length + stripCheckCount + 5;
 console.log(`\n${'='.repeat(60)}`);
 console.log(`📊 Test Summary:`);
 console.log(`   ✅ Passed: ${passedTests}/${totalTests}`);

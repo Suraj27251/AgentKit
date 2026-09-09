@@ -70,61 +70,9 @@ function findOuterTop(sql: string): { value: number; clauseStart: number; clause
   while (i < n) {
     const ch = sql[i];
 
-    // Skip single-quoted string literals with '' escaping.
-    if (ch === "'") {
-      i++;
-      while (i < n) {
-        if (sql[i] === "'") {
-          if (sql[i + 1] === "'") { i += 2; continue; }
-          i++;
-          break;
-        }
-        i++;
-      }
-      continue;
-    }
-
-    // Skip double-quoted strings/identifiers with "" escaping.
-    if (ch === '"') {
-      i++;
-      while (i < n) {
-        if (sql[i] === '"') {
-          if (sql[i + 1] === '"') { i += 2; continue; }
-          i++;
-          break;
-        }
-        i++;
-      }
-      continue;
-    }
-
-    // Skip line comments (-- to end of line). SQL Server terminates a line
-    // comment at a carriage return OR line feed, so stop at either char.
-    if (ch === '-' && sql[i + 1] === '-') {
-      while (i < n && sql[i] !== '\n' && sql[i] !== '\r') i++;
-      continue;
-    }
-
-    // Skip block comments (/* ... */).
-    if (ch === '/' && sql[i + 1] === '*') {
-      i += 2;
-      while (i < n && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
-      i += 2;
-      continue;
-    }
-
-    // Skip bracketed T-SQL identifiers ([...], with ]] escaping). A '[' or '('
-    // inside a column name must never affect the parenthesis depth.
-    if (ch === '[') {
-      i++;
-      while (i < n) {
-        if (sql[i] === ']') {
-          if (sql[i + 1] === ']') { i += 2; continue; }
-          i++;
-          break;
-        }
-        i++;
-      }
+    const skipped = skipScannerRegion(sql, i);
+    if (skipped !== null) {
+      i = skipped;
       continue;
     }
 
@@ -167,6 +115,48 @@ function findOuterTop(sql: string): { value: number; clauseStart: number; clause
   return null;
 }
 
+function skipScannerRegion(sql: string, start: number): number | null {
+  const ch = sql[start];
+  let i = start;
+
+  if (ch === "'" || ch === '"') {
+    i++;
+    while (i < sql.length) {
+      if (sql[i] === ch) {
+        if (sql[i + 1] === ch) { i += 2; continue; }
+        return i + 1;
+      }
+      i++;
+    }
+    return i;
+  }
+
+  if (ch === '-' && sql[start + 1] === '-') {
+    while (i < sql.length && sql[i] !== '\n' && sql[i] !== '\r') i++;
+    return i;
+  }
+
+  if (ch === '/' && sql[start + 1] === '*') {
+    i += 2;
+    while (i < sql.length && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+    return Math.min(i + 2, sql.length);
+  }
+
+  if (ch === '[') {
+    i++;
+    while (i < sql.length) {
+      if (sql[i] === ']') {
+        if (sql[i + 1] === ']') { i += 2; continue; }
+        return i + 1;
+      }
+      i++;
+    }
+    return i;
+  }
+
+  return null;
+}
+
 /**
  * Normalize TOP clause to enforce maximum result limit
  * @param sql - The SQL query to normalize
@@ -185,59 +175,9 @@ function findSelectInsertionPoint(sql: string): number {
   while (i < n) {
     const ch = sql[i];
 
-    // Skip single-quoted string literals with '' escaping.
-    if (ch === "'") {
-      i++;
-      while (i < n) {
-        if (sql[i] === "'") {
-          if (sql[i + 1] === "'") { i += 2; continue; }
-          i++;
-          break;
-        }
-        i++;
-      }
-      continue;
-    }
-
-    // Skip double-quoted strings/identifiers with "" escaping.
-    if (ch === '"') {
-      i++;
-      while (i < n) {
-        if (sql[i] === '"') {
-          if (sql[i + 1] === '"') { i += 2; continue; }
-          i++;
-          break;
-        }
-        i++;
-      }
-      continue;
-    }
-
-    // Skip line comments (-- to end of line)
-    if (ch === '-' && sql[i + 1] === '-') {
-      while (i < n && sql[i] !== '\n' && sql[i] !== '\r') i++;
-      continue;
-    }
-
-    // Skip block comments (/* ... */)
-    if (ch === '/' && sql[i + 1] === '*') {
-      i += 2;
-      while (i < n && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
-      i += 2;
-      continue;
-    }
-
-    // Skip bracketed T-SQL identifiers ([...], with ]] escaping)
-    if (ch === '[') {
-      i++;
-      while (i < n) {
-        if (sql[i] === ']') {
-          if (sql[i + 1] === ']') { i += 2; continue; }
-          i++;
-          break;
-        }
-        i++;
-      }
+    const skipped = skipScannerRegion(sql, i);
+    if (skipped !== null) {
+      i = skipped;
       continue;
     }
 
@@ -263,7 +203,7 @@ function findSelectInsertionPoint(sql: string): number {
   return -1; // Cannot confidently locate the outer SELECT
 }
 
-function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: boolean } {
+function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: boolean; cappable: boolean } {
   const outerTop = findOuterTop(sql);
 
   if (outerTop === null) {
@@ -276,6 +216,7 @@ function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: 
       return {
         normalizedSql: sql, // Leave SQL unchanged, validation will reject it
         limitCapped: false,
+        cappable: false,
       };
     }
 
@@ -285,6 +226,7 @@ function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: 
     return {
       normalizedSql,
       limitCapped: false,
+      cappable: true,
     };
   }
 
@@ -296,6 +238,7 @@ function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: 
     return {
       normalizedSql,
       limitCapped: true,
+      cappable: true,
     };
   }
 
@@ -303,6 +246,7 @@ function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: 
   return {
     normalizedSql: sql,
     limitCapped: false,
+    cappable: true,
   };
 }
 
@@ -564,13 +508,24 @@ function validateSqlSafety(sql: string): { isSafe: boolean; error: string } {
 }
 
 // Main validation logic
-function validateAndNormalizeSql(generatedSql: string): {
+function validateAndNormalizeSql(generatedSql: unknown): {
   safeSql: string;
   isSafe: boolean;
   error: string;
   limitCapped: boolean;
   originalSql: string;
 } {
+  // Handle undefined/null/non-string input safely
+  if (generatedSql === undefined || generatedSql === null || typeof generatedSql !== 'string') {
+    return {
+      safeSql: '',
+      isSafe: false,
+      error: 'Invalid SQL input: expected a string but received ' + (generatedSql === undefined ? 'undefined' : generatedSql === null ? 'null' : typeof generatedSql),
+      limitCapped: false,
+      originalSql: '',
+    };
+  }
+
   const originalSql = generatedSql;
 
   // Step 1: Validate SQL safety
@@ -586,11 +541,11 @@ function validateAndNormalizeSql(generatedSql: string): {
   }
 
   // Step 2: Normalize TOP clause
-  const { normalizedSql, limitCapped } = normalizeTopClause(originalSql);
+  const { normalizedSql, limitCapped, cappable } = normalizeTopClause(originalSql);
 
   // If normalizeTopClause cannot confidently locate the outer SELECT (insertionPoint = -1),
   // it returns the original SQL unchanged. We must fail closed.
-  if (normalizedSql === originalSql && findSelectInsertionPoint(originalSql) === -1) {
+  if (!cappable) {
     return {
       safeSql: '',
       isSafe: false,

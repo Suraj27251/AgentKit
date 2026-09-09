@@ -120,7 +120,13 @@ export function useHistory(userId?: string | null) {
   }, []);
 
   const deleteEntry = useCallback((id: string) => {
-    setHistory(prev => prev.filter(entry => entry.id !== id));
+    setHistory(prev => {
+      const next = prev.filter(entry => entry.id !== id);
+      if (typeof window !== 'undefined' && next.length === 0) {
+        localStorage.setItem(storageKey, JSON.stringify([]));
+      }
+      return next;
+    });
   }, []);
 
   const clearHistory = useCallback(() => {

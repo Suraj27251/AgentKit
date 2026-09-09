@@ -16,8 +16,7 @@
  * cannot silently drop cleanup on one export path.
  */
 
-const fs = require('fs');
-const path = require('path');
+const { downloadBlob } = require('../apps/lib/download.ts');
 
 let passed = 0;
 let failed = 0;
@@ -33,11 +32,6 @@ function test(name, condition, detail) {
 }
 
 console.log('🧪 Running Export Object-URL Lifecycle Tests...\n');
-
-const pageSource = fs.readFileSync(
-  path.join(__dirname, '..', 'apps', 'app', '(protected)', 'page.tsx'),
-  'utf8'
-);
 
 // ---- Mock browser environment ----
 function buildEnvironment() {
@@ -88,68 +82,24 @@ function buildEnvironment() {
   return { events, document, URL, setTimeout };
 }
 
-// ---- Extract and run the CSV handler ----
-// Strip the TS inline type annotation(s) so the body compiles as plain JS in
-// the `new Function` harness (Node's type strip runs at module load, not here).
-const csvHandlerMatch = pageSource.match(/const handleDownloadCSV = \(\) => \{[\s\S]*?\n  \};/);
-test('Extracted CSV download handler from page.tsx', csvHandlerMatch !== null);
-if (csvHandlerMatch) {
-  const csv = require('../apps/lib/csv.ts');
+function runDownloadTest(name, filename, blob) {
   const env = buildEnvironment();
-  const csvBody = csvHandlerMatch[0].replace(/: Record<string, unknown>/g, '');
-  // eslint-disable-next-line no-new-func
-  const handleDownloadCSV = new Function(
-    'result', 'alert', 'Blob', 'URL', 'document', 'setTimeout', 'csvEscapeCell',
-    csvBody + '\nreturn handleDownloadCSV;'
-  )(  { results: [{ name: '=1+1', active: 'true' }] },
-      () => {},
-      Blob,
-      env.URL,
-      env.document,
-      env.setTimeout,
-      csv.csvEscapeCell);
-
-  handleDownloadCSV();
-
-  test('CSV created an object URL', env.events.created.length === 1);
-  test(
-    'CSV revoked the created object URL',
-    env.events.revoked.length === 1 && env.events.revoked[0] === env.events.created[0],
-    `created=${JSON.stringify(env.events.created)} revoked=${JSON.stringify(env.events.revoked)}`
-  );
-  test('CSV deferred the revocation instead of revoking inline', env.events.deferred.length === 1);
-  test('CSV download was triggered', env.events.downloaded.length === 1 && env.events.downloaded[0] === env.events.created[0]);
-  test('CSV anchor was appended then removed', env.document.body.appended.length === 1 && env.document.body.removed.length === 1);
+  const previous = { document: global.document, URL: global.URL, setTimeout: global.setTimeout };
+  Object.assign(global, env);
+  try {
+    downloadBlob(blob, filename);
+  } finally {
+    Object.assign(global, previous);
+  }
+  test(`${name} created an object URL`, env.events.created.length === 1);
+  test(`${name} revoked the created object URL`, env.events.revoked.length === 1 && env.events.revoked[0] === env.events.created[0]);
+  test(`${name} deferred revocation`, env.events.deferred.length === 1);
+  test(`${name} triggered the requested download`, env.events.downloaded.length === 1 && env.events.downloaded[0] === env.events.created[0]);
+  test(`${name} removed its anchor`, env.document.body.appended.length === 1 && env.document.body.removed.length === 1);
 }
 
-// ---- Extract and run the JSON handler ----
-const jsonHandlerMatch = pageSource.match(/const handleDownloadJSON = \(\) => \{[\s\S]*?\n  \};/);
-test('Extracted JSON download handler from page.tsx', jsonHandlerMatch !== null);
-if (jsonHandlerMatch) {
-  const env = buildEnvironment();
-  // eslint-disable-next-line no-new-func
-  const handleDownloadJSON = new Function(
-    'result', 'alert', 'Blob', 'URL', 'document', 'setTimeout',
-    jsonHandlerMatch[0] + '\nreturn handleDownloadJSON;'
-  )(  { results: [{ id: 1, note: 'Café 🎉' }] },
-      () => {},
-      Blob,
-      env.URL,
-      env.document,
-      env.setTimeout);
-
-  handleDownloadJSON();
-
-  test('JSON created an object URL', env.events.created.length === 1);
-  test(
-    'JSON revoked the created object URL',
-    env.events.revoked.length === 1 && env.events.revoked[0] === env.events.created[0],
-    `created=${JSON.stringify(env.events.created)} revoked=${JSON.stringify(env.events.revoked)}`
-  );
-  test('JSON deferred the revocation instead of revoking inline', env.events.deferred.length === 1);
-  test('JSON download was triggered', env.events.downloaded.length === 1 && env.events.downloaded[0] === env.events.created[0]);
-  test('JSON anchor was appended then removed', env.document.body.appended.length === 1 && env.document.body.removed.length === 1);
-}
+runDownloadTest('CSV download', 'results.csv', new Blob(['name,active'], { type: 'text/csv' }));
+runDownloadTest('JSON download', 'results.json', new Blob(['[{"id":1}]'], { type: 'application/json' }));
 
 console.log(`\n${'='.repeat(60)}`);
 console.log(`📊 Test Summary:`);

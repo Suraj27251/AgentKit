@@ -44,7 +44,8 @@ function loadProductionValidator() {
   }
 
   const funcsSource = scriptSource.slice(0, tailIndex);
-  const tempModule = path.join(os.tmpdir(), `nl-to-sql-validator-${process.pid}-${Date.now()}.ts`);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-to-sql-validator-'));
+  const tempModule = path.join(tempDir, 'validator.ts');
   fs.writeFileSync(
     tempModule,
     `${funcsSource}\nmodule.exports = { findOuterTop, normalizeTopClause, stripQuotedStringsAndComments, validateSqlSafety, validateAndNormalizeSql };\n`
@@ -53,7 +54,7 @@ function loadProductionValidator() {
   try {
     return require(tempModule);
   } finally {
-    fs.unlinkSync(tempModule);
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
 }
 

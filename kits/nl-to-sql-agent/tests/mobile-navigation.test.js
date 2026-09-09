@@ -67,11 +67,11 @@ test(
 // --- Accessible mobile menu button ---
 test(
   'Mobile menu is opened by a real <button> (not a div)',
-  /<button[\s\S]*?aria-label="Open navigation"[\s\S]*?>/.test(topNavSource)
+  /<button[\s\S]*?aria-label=\{menuOpen \? "Close navigation" : "Open navigation"\}[\s\S]*?>/.test(topNavSource)
 );
 test(
   'Mobile menu button has an accessible label',
-  /aria-label="Open navigation"/.test(topNavSource)
+  /aria-label=\{menuOpen \? "Close navigation" : "Open navigation"\}/.test(topNavSource)
 );
 test(
   'Mobile menu button exposes aria-expanded state',
@@ -101,7 +101,13 @@ test(
 // --- Logout flow preserved (Batch D, Issue #10) ---
 test(
   'TopNav logout form still clears the namespaced history',
-  /action="\/logout"\s+method="post"\s+onSubmit=\{\(\) => clearStoredHistory\(userId\)\}/.test(topNavSource)
+  /clearStoredHistory\(userId\)/.test(topNavSource)
+);
+test('TopNav logout form posts to /logout', /action="\/logout"/.test(topNavSource));
+test('TopNav logout form uses POST', /method="post"/.test(topNavSource));
+test(
+  'TopNav logout form clears history on submit',
+  /onSubmit=\{\(\) => clearStoredHistory\(userId\)\}/.test(topNavSource)
 );
 test(
   'Nav items still link to Workspace and History',

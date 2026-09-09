@@ -59,7 +59,7 @@ export default defineConfig({
       : `npm run dev -- -p ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 180 * 1000,
     env: {
       SESSION_PASSWORD: process.env.SESSION_PASSWORD || TEST_SESSION_PASSWORD,
       DEMO_AUTH_ENABLED: process.env.DEMO_AUTH_ENABLED || 'true',

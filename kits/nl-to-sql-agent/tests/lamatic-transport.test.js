@@ -276,7 +276,7 @@ const BASE_ENV = {
   LAMATIC_API_KEY: SECRET_KEY,
   NL_TO_SQL_FLOW_ID: 'flow-1',
 };
-const CONFIG_STUB = { steps: [{ envKey: 'NL_TO_SQL_FLOW_ID' }] };
+const CONFIG_STUB = { steps: [{ id: 'nl-to-sql-flow', envKey: 'NL_TO_SQL_FLOW_ID' }] };
 
 function loadRealModule(env, behavior) {
   const captured = { configs: [], calls: [] };

@@ -9,10 +9,11 @@ import {
   ShieldCheck, ShieldAlert, Table2, Timer, Search, RotateCcw,
   AlertTriangle, CircleAlert, WandSparkles, Code2, Database, Info,
 } from "lucide-react";
-import { executeFlow } from "@/actions/orchestrate";
+import { executeFlow, type NLToSQLResponse } from "@/actions/orchestrate";
 import { useHistory } from "@/lib/history";
 import { useSessionUserId } from "@/components/session-provider";
 import { csvEscapeCell } from "@/lib/csv";
+import { downloadBlob } from "@/lib/download";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -69,7 +70,7 @@ export default function HomePage() {
 function HomePageContent() {
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<NLToSQLResponse | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [filterText, setFilterText] = useState("");
@@ -157,19 +158,7 @@ function HomePageContent() {
         headers.map(h => csvEscapeCell(row[h])).join(",")
       )
     ].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "results.csv");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    // Release the temporary object URL. The browser begins consuming the URL
-    // asynchronously, so revoke on the next tick to avoid cancelling the
-    // download before it has started.
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    downloadBlob(new Blob([csvContent], { type: "text/csv;charset=utf-8;" }), "results.csv");
   };
 
   const handleDownloadJSON = () => {
@@ -178,18 +167,7 @@ function HomePageContent() {
       return;
     }
     const jsonContent = JSON.stringify(result.results, null, 2);
-    const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "results.json");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    // Release the temporary object URL on the next tick so the browser has
-    // begun the download before revocation.
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    downloadBlob(new Blob([jsonContent], { type: "application/json;charset=utf-8;" }), "results.json");
   };
 
   const filteredResults = useMemo(() => {

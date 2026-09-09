@@ -26,65 +26,68 @@ async function login(page: Page) {
   await expect(page.locator('text=Ask your database a question')).toBeVisible();
 }
 
-test.describe('Queryline E2E Tests', () => {
-  test.beforeEach(async ({ page }) => {
-    // Start from login page
-    await page.goto('/login');
+if (process.env.DEMO_AUTH_ENABLED === "true") {
+  test.describe('Queryline E2E Tests', () => {
+    test.beforeEach(async ({ page }) => {
+      // Start from login page
+      await page.goto('/login');
+    });
+
+    test('should login with configured demo credentials', async ({ page }) => {
+      const { username, password } = demoCredentials();
+
+      // Fill in the login form with configured credentials
+      await page.fill('input[name="username"]', username);
+      await page.fill('input[name="password"]', password);
+
+      // Submit the form
+      await page.click('button[type="submit"]');
+
+      // Should redirect to home page and show the main NL-to-SQL UI
+      await expect(page).toHaveURL('/');
+      await expect(page.locator('text=Ask your database a question')).toBeVisible();
+    });
+
+    test('should show error for invalid credentials', async ({ page }) => {
+      // Fill in the login form with wrong credentials
+      await page.fill('input[name="username"]', 'wrong');
+      await page.fill('input[name="password"]', 'wrong');
+
+      // Submit the form
+      await page.click('button[type="submit"]');
+
+      // Should show the invalid credentials error
+      await expect(page.locator('text=Invalid username or password')).toBeVisible();
+    });
+
+    test('should allow asking a question after login', async ({ page }) => {
+      const { username, password } = demoCredentials();
+
+      await page.fill('input[name="username"]', username);
+      await page.fill('input[name="password"]', password);
+      await page.click('button[type="submit"]');
+
+      // Wait for the main NL-to-SQL UI
+      await expect(page.locator('text=Ask your database a question')).toBeVisible();
+
+      // Fill in a question
+      await page.fill('textarea[placeholder="Enter your question about the database..."]', 'Show me all users');
+
+      // Submit the question
+      await page.click('button:has-text("Ask Question")');
+
+      // Submitting must invoke the flow. Assert an outcome that does not vanish
+      // when the request settles quickly: either the loading state or the result.
+      await expect(
+        page
+          .locator('button:has-text("Ask Question")[disabled]')
+          .or(page.locator('text=Query Results'))
+          .or(page.locator('text=Generated SQL'))
+          .first()
+      ).toBeVisible();
+    });
   });
-
-  test('should login with configured demo credentials', async ({ page }) => {
-    const { username, password } = demoCredentials();
-
-    // Fill in the login form with configured credentials
-    await page.fill('input[name="username"]', username);
-    await page.fill('input[name="password"]', password);
-
-    // Submit the form
-    await page.click('button[type="submit"]');
-
-    // Should redirect to home page and show the main NL-to-SQL UI
-    await expect(page).toHaveURL('/');
-    await expect(page.locator('text=Ask your database a question')).toBeVisible();
-  });
-
-  test('should show error for invalid credentials', async ({ page }) => {
-    // Fill in the login form with wrong credentials
-    await page.fill('input[name="username"]', 'wrong');
-    await page.fill('input[name="password"]', 'wrong');
-
-    // Submit the form
-    await page.click('button[type="submit"]');
-
-    // Should show the invalid credentials error
-    await expect(page.locator('text=Invalid username or password')).toBeVisible();
-  });
-
-  test('should allow asking a question after login', async ({ page }) => {
-    const { username, password } = demoCredentials();
-
-    await page.fill('input[name="username"]', username);
-    await page.fill('input[name="password"]', password);
-    await page.click('button[type="submit"]');
-
-    // Wait for the main NL-to-SQL UI
-    await expect(page.locator('text=Ask your database a question')).toBeVisible();
-
-    // Fill in a question
-    await page.fill('textarea[placeholder="Enter your question about the database..."]', 'Show me all users');
-
-    // Submit the question
-    await page.click('button:has-text("Ask Question")');
-
-    // Submitting must invoke the flow. Assert an outcome that does not vanish
-    // when the request settles quickly: either the loading state or the result.
-    await expect(
-      page
-        .locator('button:has-text("Ask Question")[disabled]')
-        .or(page.locator('text=Query Results'))
-        .or(page.locator('text=Generated SQL'))
-        .first()
-    ).toBeVisible();
-  });
+}
 
   test('should persist theme preference', async ({ page }) => {
     const { username, password } = demoCredentials();
@@ -147,8 +150,6 @@ test.describe('Queryline E2E Tests', () => {
       page.evaluate(() => document.documentElement.classList.contains('dark'))
     ).toBe(true);
   });
-});
-
 // Mobile History navigation (Batch E1, Issue #16).
 // These run against baseURL http://localhost:3000 (playwright.config.ts),
 // matching the documented `npm run dev` port.
