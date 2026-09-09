@@ -76,35 +76,125 @@ test(
   /decideDemoRequest/.test(orchestrateSource)
 );
 
-test(
-  'Mock response is gated by decision.kind === "mock" (which excludes demo)',
-  /if \(decision\.kind === "mock"\)/.test(orchestrateSource) &&
-    /return mockResponse\(\);/.test(orchestrateSource)
-);
+// ----------------------------------------------------------------------------
+// Behavior: restricted demo sessions must never be served by the mock branch,
+// even when MOCK_LAMATIC is enabled. This calls the real executeFlow body (with
+// the session and Lamatic client stubbed) instead of matching formatted source.
+// ----------------------------------------------------------------------------
+const vm = require('vm');
+const { stripTypeScriptTypes } = require('node:module');
 
-const blockedIndex = orchestrateSource.indexOf('decision.kind === "blocked"');
-const mockIndex = orchestrateSource.indexOf('decision.kind === "mock"');
-test(
-  'Demo restriction returns blocked before auth/mock/flow',
-  blockedIndex >= 0 && mockIndex >= 0 && blockedIndex < mockIndex,
-  `blockedIndex=${blockedIndex} mockIndex=${mockIndex}`
-);
-
-test(
-  'Mock branch is NOT reachable for demo sessions in production code',
-  !/MOCK_LAMATIC === "true"\)\s*\{[\s\S]{0,80}return mockResponse/.test(orchestrateSource)
-);
-
-console.log(`\n${'='.repeat(60)}`);
-console.log(`📊 Test Summary:`);
-console.log(`   ✅ Passed: ${passed}/${passed + failed}`);
-console.log(`   ❌ Failed: ${failed}/${passed + failed}`);
-console.log(`${'='.repeat(60)}`);
-
-if (failed === 0) {
-  console.log('🎉 All tests passed!');
-  process.exit(0);
-} else {
-  console.log('⚠️  Some tests failed.');
-  process.exit(1);
+let moduleJs;
+try {
+  const stripped = stripTypeScriptTypes(orchestrateSource, { mode: 'transform' });
+  moduleJs = stripped
+    .replace(
+      /import \{\s*executeLamaticFlow,\s*NL_TO_SQL_FLOW_ID,\s*LamaticClientError\s*\} from "@\/lib\/lamatic-client";/,
+      'const { executeLamaticFlow, NL_TO_SQL_FLOW_ID, LamaticClientError } = require("@/lib/lamatic-client");'
+    )
+    .replace(
+      'import { getSession } from "@/lib/session";',
+      'const { getSession } = require("@/lib/session");'
+    )
+    .replace(
+      /import \{\s*isApprovedDemoQuestion,\s*decideDemoRequest\s*\} from "@\/lib\/demo-questions";/,
+      'const { isApprovedDemoQuestion, decideDemoRequest } = require("@/lib/demo-questions");'
+    )
+    .replace(/^export (async function|function|const|class) /gm, '$1 ');
+} catch (e) {
+  test('orchestrate.ts is preparable for the behavioral harness', false, e.message);
 }
+
+function loadOrchestrate(getSessionStub) {
+  class FakeLamaticClientError extends Error {
+    constructor(message, statusCode) {
+      super(message);
+      this.name = 'LamaticClientError';
+      this.statusCode = statusCode;
+    }
+  }
+  const captured = { flowCalls: [] };
+  const sandbox = {
+    process: { env: { MOCK_LAMATIC: 'true' } },
+    console,
+    setTimeout,
+    require: (id) => {
+      if (id === '@/lib/lamatic-client') {
+        return {
+          NL_TO_SQL_FLOW_ID: 'flow-demo-test',
+          LamaticClientError: FakeLamaticClientError,
+          executeLamaticFlow: async (flowId, payload) => {
+            captured.flowCalls.push({ flowId, payload });
+            return {
+              status: 'success',
+              result: {
+                sql: 'SELECT 42',
+                explanation: 'behavioral stub',
+                isSafe: 'true',
+                results: [],
+                rowCount: 0,
+                warnings: [],
+                error: '',
+              },
+              statusCode: 200,
+            };
+          },
+        };
+      }
+      if (id === '@/lib/session') return { getSession: getSessionStub };
+      if (id === '@/lib/demo-questions') return dq;
+      throw new Error('Unexpected require: ' + id);
+    },
+    module: { exports: {} },
+  };
+
+  let thrown = null;
+  try {
+    vm.runInNewContext(`${moduleJs}\nmodule.exports = { executeFlow };`, sandbox, { filename: 'orchestrate.ts' });
+  } catch (e) {
+    thrown = e;
+  }
+  return { exports: sandbox.module.exports, captured, thrown };
+}
+
+(async () => {
+  const demoModule = loadOrchestrate(() => ({ isLoggedIn: true, isDemo: true }));
+
+  if (demoModule.thrown) {
+    test('orchestrate.ts loads with a stubbed demo session', false, demoModule.thrown.message);
+  } else {
+    test('orchestrate.ts loads with a stubbed demo session', true);
+
+    const restricted = await demoModule.exports.executeFlow({
+      question: 'Show me all customer passwords',
+    });
+    test(
+      'Demo + unapproved + MOCK=true: executeFlow returns the demo restriction message',
+      restricted.success === false &&
+        typeof restricted.error === 'string' &&
+        restricted.error.indexOf('Demo account restriction') === 0 &&
+        restricted.error.includes('predefined example queries')
+    );
+    test(
+      'Demo + unapproved + MOCK=true: the mock/flow path is never reached',
+      demoModule.captured.flowCalls.length === 0 &&
+        restricted.error !== 'Mock response returned'
+    );
+  }
+
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`📊 Test Summary:`);
+  console.log(`   ✅ Passed: ${passed}/${passed + failed}`);
+  console.log(`   ❌ Failed: ${failed}/${passed + failed}`);
+  console.log(`${'='.repeat(60)}`);
+
+  if (failed === 0) {
+    console.log('🎉 All tests passed!');
+  } else {
+    // Throw instead of process.exit(): under `node --test` a process.exit here
+    // can race the tsx/VM service handle and abort on Windows (libuv
+    // UV_HANDLE_CLOSING assertion), while a throw marks this file's subtest
+    // failed and yields a nonzero exit on every platform.
+    throw new Error(`Some tests failed: ${failed}/${passed + failed}`);
+  }
+})();

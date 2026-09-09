@@ -2,32 +2,51 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Loader2, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { login } from "@/actions/login";
 import BrandLogo from "@/components/BrandLogo";
 
+const loginSchema = z.object({
+  username: z.string().trim().min(1, "Username is required"),
+  password: z.string().trim().min(1, "Password is required"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
 export default function LoginForm() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+  });
+
+  const username = watch("username") ?? "";
+  const password = watch("password") ?? "";
+
   const hasError = searchParams.get("error") === "1";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
     setError("");
 
     try {
       const formData = new FormData();
-      formData.set("username", username);
-      formData.set("password", password);
+      formData.set("username", values.username);
+      formData.set("password", values.password);
       await login(formData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -57,7 +76,7 @@ export default function LoginForm() {
         </div>
 
         <Card className="w-full rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-8 shadow-soft sm:p-10">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
             {(error || hasError) && (
               <div className="flex items-start gap-3 rounded-lg border border-error/40 bg-error-container px-4 py-3">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-on-error-container" />
@@ -74,23 +93,24 @@ export default function LoginForm() {
               <div className="relative">
                 <input
                   id="username"
-                  name="username"
                   type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  aria-invalid={showInvalid}
+                  {...register("username")}
+                  aria-invalid={!!errors.username}
                   className={`w-full rounded-lg border bg-surface-container-lowest px-4 py-3 font-body text-sm text-on-surface outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${
-                    showInvalid ? "border-error" : "border-input"
+                    errors.username ? "border-error" : "border-input"
                   }`}
                   placeholder="Enter username"
                   disabled={isLoading}
                 />
-                {showInvalid && (
+                {(errors.username || showInvalid) && (
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                     <AlertCircle className="h-5 w-5 text-error" fill="currentColor" strokeWidth={0} />
                   </div>
                 )}
               </div>
+              {errors.username && (
+                <p className="mt-1 text-sm font-medium text-error">{errors.username.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -102,13 +122,11 @@ export default function LoginForm() {
               <div className="relative">
                 <input
                   id="password"
-                  name="password"
                   type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  aria-invalid={showInvalid}
+                  {...register("password")}
+                  aria-invalid={!!errors.password}
                   className={`w-full rounded-lg border bg-surface-container-lowest px-4 py-3 pr-12 font-body text-sm text-on-surface outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${
-                    showInvalid ? "border-error" : "border-input"
+                    errors.password ? "border-error" : "border-input"
                   }`}
                   placeholder="Enter password"
                   disabled={isLoading}
@@ -122,10 +140,14 @@ export default function LoginForm() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              {showInvalid && (
-                <p className="mt-2 text-sm font-medium text-error">
-                  Invalid credentials provided.
-                </p>
+              {errors.password ? (
+                <p className="mt-2 text-sm font-medium text-error">{errors.password.message}</p>
+              ) : (
+                showInvalid && (
+                  <p className="mt-2 text-sm font-medium text-error">
+                    Invalid credentials provided.
+                  </p>
+                )
               )}
             </div>
 

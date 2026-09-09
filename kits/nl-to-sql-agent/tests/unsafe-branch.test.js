@@ -17,27 +17,20 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 // Load the REAL production validator so the blocked-path contract is asserted
 // against the same implementation the flow executes, never a local copy.
-const scriptSource = fs.readFileSync(
-  path.join(__dirname, '..', 'scripts', 'nl-to-sql-agent_validation-node.ts'),
+const { loadProductionValidator } = require('./load-validator');
+
+const { validateAndNormalizeSql } = loadProductionValidator();
+
+// Load the REAL aggregation script so the blocked-path contract is asserted
+// against the same production implementation the flow executes.
+const aggregationSource = fs.readFileSync(
+  path.join(__dirname, '..', 'scripts', 'nl-to-sql-agent_aggregation-node.ts'),
   'utf8'
 );
-const tailMarker = '// Execute validation and normalization';
-const funcsSource = scriptSource.slice(0, scriptSource.indexOf(tailMarker));
-const tempModule = path.join(
-  os.tmpdir(),
-  `nl-to-sql-unsafe-${process.pid}-${Date.now()}.ts`
-);
-fs.writeFileSync(
-  tempModule,
-  `${funcsSource}\nmodule.exports = { findOuterTop, normalizeTopClause, stripQuotedStringsAndComments, validateSqlSafety, validateAndNormalizeSql };\n`
-);
-const { validateAndNormalizeSql } = require(tempModule);
-fs.unlinkSync(tempModule);
 
 let passed = 0;
 let failed = 0;
@@ -181,6 +174,37 @@ test(
   'Safe path still connects execution -> explanation -> aggregation',
   edges.some((e) => e.source === 'mssqlNode_execute' && e.target === 'LLMNode_explain') &&
     edges.some((e) => e.source === 'LLMNode_explain' && e.target === 'codeNode_aggregate')
+);
+
+// ============================================================================
+// C. AGGREGATION SCRIPT CONTRACT (source-level, real production script)
+// ============================================================================
+
+const unsafeBranchStart = aggregationSource.indexOf('if (!isSafe)');
+const unsafeBranchSlice =
+  unsafeBranchStart === -1
+    ? ''
+    : aggregationSource.slice(
+        unsafeBranchStart,
+        aggregationSource.indexOf('// Parse results', unsafeBranchStart)
+      );
+
+const expectedUnsafeFields = [
+  "sql: ''",
+  'originalSql: originalSql',
+  "explanation: ''",
+  "isSafe: 'false'",
+  'results: []',
+  'rowCount: 0',
+  'error:',
+  'warnings: []',
+  'limitCapped: false',
+];
+
+test('Aggregation script declares the unsafe branch', unsafeBranchStart !== -1 && /\r?\n\s*\/\/ Parse results\r?\n/.test(aggregationSource));
+test(
+  'Unsafe branch (if (!isSafe) to // Parse results) carries the blocked-response contract fields',
+  unsafeBranchSlice.length > 0 && expectedUnsafeFields.every((field) => unsafeBranchSlice.includes(field))
 );
 
 // ============================================================================

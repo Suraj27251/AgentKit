@@ -333,22 +333,22 @@ test('Module fails closed when LAMATIC_API_URL is http (SDK never constructed)',
 
 test('Module fails closed when LAMATIC_API_URL is missing', (() => {
   const { captured, thrown } = loadRealModule(withoutEnv('LAMATIC_API_URL'), successBehavior);
-  return !!thrown && captured.configs.length === 0;
+  return !!thrown && /LAMATIC_API_URL/.test(thrown.message) && captured.configs.length === 0;
 })());
 
 test('Module fails closed when LAMATIC_PROJECT_ID is missing', (() => {
   const { captured, thrown } = loadRealModule(withoutEnv('LAMATIC_PROJECT_ID'), successBehavior);
-  return !!thrown && captured.configs.length === 0;
+  return !!thrown && /LAMATIC_PROJECT_ID/.test(thrown.message) && captured.configs.length === 0;
 })());
 
 test('Module fails closed when LAMATIC_API_KEY is missing', (() => {
   const { captured, thrown } = loadRealModule(withoutEnv('LAMATIC_API_KEY'), successBehavior);
-  return !!thrown && captured.configs.length === 0;
+  return !!thrown && /LAMATIC_API_KEY/.test(thrown.message) && captured.configs.length === 0;
 })());
 
 test('Module fails closed when the flow ID env var is missing', (() => {
   const { captured, thrown } = loadRealModule(withoutEnv('NL_TO_SQL_FLOW_ID'), successBehavior);
-  return !!thrown && captured.configs.length === 0;
+  return !!thrown && /NL_TO_SQL_FLOW_ID/.test(thrown.message) && captured.configs.length === 0;
 })());
 
 // --- HTTPS endpoint: SDK is constructed with the validated configuration ---

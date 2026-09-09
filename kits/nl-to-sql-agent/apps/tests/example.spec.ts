@@ -78,7 +78,11 @@ test.describe('Queryline E2E Tests', () => {
     // Submitting must invoke the flow. Assert an outcome that does not vanish
     // when the request settles quickly: either the loading state or the result.
     await expect(
-      page.locator('button:has-text("Ask Question")[disabled], text=Query Results, text=Generated SQL')
+      page
+        .locator('button:has-text("Ask Question")[disabled]')
+        .or(page.locator('text=Query Results'))
+        .or(page.locator('text=Generated SQL'))
+        .first()
     ).toBeVisible();
   });
 

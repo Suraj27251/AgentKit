@@ -497,17 +497,20 @@ function HomePageContent() {
                   ) : (
                     filteredResults.map((row: Record<string, unknown>, rowIndex: number) => (
                       <tr key={rowIndex} className="transition-colors hover:bg-surface-container-low/50">
-                        {Object.values(row).map((value: unknown, colIndex: number) => (
-                          <td key={colIndex} className="whitespace-nowrap px-6 py-3.5 text-on-surface-variant">
-                            {value === null ? (
-                              <span className="italic text-outline">null</span>
-                            ) : value === undefined ? (
-                              <span className="italic text-outline">undefined</span>
-                            ) : (
-                              String(value)
-                            )}
-                          </td>
-                        ))}
+                        {Object.keys(result.results[0] || {}).map((headerKey, colIndex) => {
+                          const value = row[headerKey];
+                          return (
+                            <td key={colIndex} className="whitespace-nowrap px-6 py-3.5 text-on-surface-variant">
+                              {value === null ? (
+                                <span className="italic text-outline">null</span>
+                              ) : value === undefined ? (
+                                <span className="italic text-outline">undefined</span>
+                              ) : (
+                                String(value)
+                              )}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))
                   )}

@@ -113,6 +113,21 @@ function findOuterTop(sql: string): { value: number; clauseStart: number; clause
       continue;
     }
 
+    // Skip bracketed T-SQL identifiers ([...], with ]] escaping). A '[' or '('
+    // inside a column name must never affect the parenthesis depth.
+    if (ch === '[') {
+      i++;
+      while (i < n) {
+        if (sql[i] === ']') {
+          if (sql[i + 1] === ']') { i += 2; continue; }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
     // Track parenthesis depth.
     if (ch === '(') { depth++; i++; continue; }
     if (ch === ')') { if (depth > 0) depth--; i++; continue; }
@@ -316,6 +331,21 @@ function hasTopLevelSetOperator(strippedSql: string): boolean {
 
   while (i < n) {
     const ch = strippedSql[i];
+
+    // Skip bracketed T-SQL identifiers ([...], with ]] escaping). A '(' inside
+    // a column name must never affect the parenthesis depth.
+    if (ch === '[') {
+      i++;
+      while (i < n) {
+        if (strippedSql[i] === ']') {
+          if (strippedSql[i + 1] === ']') { i += 2; continue; }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
 
     if (ch === '(') { depth++; i++; continue; }
     if (ch === ')') { if (depth > 0) depth--; i++; continue; }

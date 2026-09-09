@@ -1,4 +1,5 @@
 import { Lamatic } from "lamatic";
+import type { LamaticResponse } from "lamatic/dist/types";
 import config from "../../lamatic.config";
 
 if (!process.env.LAMATIC_API_URL) {
@@ -91,17 +92,10 @@ export class LamaticClientError extends Error {
   }
 }
 
-type LamaticExecutionStatus = "success" | "error" | "failed";
-
-interface LamaticExecutionResponse {
-  status: LamaticExecutionStatus;
-  result: Record<string, any> | null;
-  message?: string;
-  statusCode?: number;
-}
-
 /**
- * Normalize a resolved SDK execution response to the application contract:
+ * Normalize a resolved SDK execution response to the application contract.
+ * The SDK's own `LamaticResponse` type is used so the shape can never drift
+ * from what the SDK actually returns:
  *   - success -> { status: "success", result }
  *   - flow-level failure (non-HTTP, e.g. GraphQL 200) -> resolved
  *     { status: "error", result, message }, which callers already handle
@@ -110,7 +104,7 @@ interface LamaticExecutionResponse {
  *     "Lamatic API error (<status>): <detail>" shape.
  */
 function normalizeLamaticResponse(
-  response: LamaticExecutionResponse
+  response: LamaticResponse
 ): { status: string; result: any; message?: string } {
   if (!response) {
     throw new LamaticClientError("No response returned from Lamatic workflow");
@@ -123,7 +117,7 @@ function normalizeLamaticResponse(
     };
   }
 
-  if (response.status === "error" || response.status === "failed") {
+  if (response.status === "error") {
     const detail = response.message || "Lamatic workflow execution failed.";
     const statusCode = response.statusCode;
 

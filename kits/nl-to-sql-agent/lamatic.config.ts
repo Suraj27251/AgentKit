@@ -11,7 +11,7 @@ export default {
   links: {
     demo: "https://agent-kit-omega.vercel.app",
     github: "https://github.com/Lamatic/AgentKit/tree/main/kits/nl-to-sql-agent",
-    deploy: "https://vercel.com/new/clone?repository-url=https://github.com/Lamatic/AgentKit&root-directory=kits%2Fnl-to-sql-agent%2Fapps&env=NL_TO_SQL_FLOW_ID,LAMATIC_API_URL,LAMATIC_PROJECT_ID,LAMATIC_API_KEY&envDescription=Your%20Lamatic%20credentials%20and%20the%20deployed%20Queryline%20flow%20ID%20are%20required.",
+    deploy: "https://vercel.com/new/clone?repository-url=https://github.com/Lamatic/AgentKit&root-directory=kits%2Fnl-to-sql-agent%2Fapps&env=NL_TO_SQL_FLOW_ID,LAMATIC_API_URL,LAMATIC_PROJECT_ID,LAMATIC_API_KEY,SESSION_PASSWORD,DEMO_AUTH_ENABLED,DEMO_USERNAME,DEMO_PASSWORD&envDescription=Your%20Lamatic%20credentials,%20the%20deployed%20Queryline%20flow%20ID,%20the%20session%20cookie%20password%2C%20and%20the%20optional%20demo%20login%20credentials%20are%20required.",
     docs: "https://lamatic.ai/docs/"
   }
 };

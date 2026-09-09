@@ -112,7 +112,7 @@ The Next.js app consumes this contract in `apps/actions/orchestrate.ts`, which n
 ## Quickstart
 
 1. In Lamatic Studio, create a project, deploy the `nl-to-sql-flow` ("Queryline"), and copy the resulting Flow ID.
-2. In `apps/`, copy `.env.example` to `.env.local` and set `LAMATIC_API_URL`, `LAMATIC_PROJECT_ID`, `LAMATIC_API_KEY`, and `NL_TO_SQL_FLOW_ID`. To use the built-in demo login, also set `DEMO_AUTH_ENABLED=true` along with `DEMO_USERNAME` and `DEMO_PASSWORD`.
+2. In `apps/`, copy `.env.example` to `.env.local` and set `LAMATIC_API_URL`, `LAMATIC_PROJECT_ID`, `LAMATIC_API_KEY`, `NL_TO_SQL_FLOW_ID`, and a strong `SESSION_PASSWORD` (replace the placeholder with a random secret of at least 32 characters — never ship the example value). To use the built-in demo login, also set `DEMO_AUTH_ENABLED=true` along with `DEMO_USERNAME` and `DEMO_PASSWORD`.
 3. Configure the Microsoft SQL Server connection in Lamatic Studio for the `mssqlNode` (a read-only user is recommended).
 4. Install and run the app:
    - `npm install`

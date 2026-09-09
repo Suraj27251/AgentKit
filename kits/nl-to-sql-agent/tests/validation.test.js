@@ -20,34 +20,9 @@
 // LOAD THE REAL PRODUCTION IMPLEMENTATION
 // ============================================================================
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+const { loadProductionValidator } = require('./load-validator');
 
-const scriptSource = fs.readFileSync(
-  path.join(__dirname, '..', 'scripts', 'nl-to-sql-agent_validation-node.ts'),
-  'utf8'
-);
-
-// The production script's function definitions live before the Lamatic runtime
-// tail (which references the runtime-injected `LLMNode_sql_gen` variable and so
-// cannot be executed here). Extract that head, write it to a temp .ts module
-// (Node 24 type-strips the annotations) and expose the real functions so the
-// tests exercise the actual production implementation, not a local copy.
-const tailMarker = '// Execute validation and normalization';
-const funcsSource = scriptSource.slice(0, scriptSource.indexOf(tailMarker));
-
-const tempModule = path.join(
-  os.tmpdir(),
-  `nl-to-sql-validation-${process.pid}-${Date.now()}.ts`
-);
-fs.writeFileSync(
-  tempModule,
-  `${funcsSource}\nmodule.exports = { findOuterTop, normalizeTopClause, stripQuotedStringsAndComments, validateSqlSafety, validateAndNormalizeSql };\n`
-);
-
-const { stripQuotedStringsAndComments, validateAndNormalizeSql } = require(tempModule);
-fs.unlinkSync(tempModule);
+const { stripQuotedStringsAndComments, validateAndNormalizeSql } = loadProductionValidator();
 
 // ============================================================================
 // TEST CASES
@@ -410,6 +385,27 @@ const testCases = [
     expectedSafe: true,
     expectedSql: 'SELECT TOP 1000 union_id FROM Customers',
     expectedCapped: false,
+  },
+
+  // === Bracketed T-SQL identifiers must not leak parens or keywords into the scan ===
+  {
+    name: 'TOP inside a bracketed column name is not treated as a TOP clause',
+    input: 'SELECT [TOP(5] FROM T',
+    expectedSafe: true,
+    expectedSql: 'SELECT TOP 1000 [TOP(5] FROM T',
+    expectedCapped: false,
+  },
+  {
+    name: 'A bracket identifier with ( does not hide a top-level UNION',
+    input: 'SELECT [a(b] FROM A UNION SELECT [c(d] FROM B',
+    expectedSafe: false,
+    expectedErrorPattern: /Set operations/i,
+  },
+  {
+    name: 'An escaped ]] bracket identifier with ( does not hide a top-level UNION',
+    input: 'SELECT [a]]b(c] FROM T UNION SELECT [x] FROM Y',
+    expectedSafe: false,
+    expectedErrorPattern: /Set operations/i,
   },
 
   // === Stateful scanner: an apostrophe in a -- comment must not hide a later statement ===

@@ -19,33 +19,11 @@
 // ============================================================================
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
-const scriptSource = fs.readFileSync(
-  path.join(__dirname, '..', 'scripts', 'nl-to-sql-agent_validation-node.ts'),
-  'utf8'
-);
+const { loadProductionValidator } = require('./load-validator');
 
-// The production script's function definitions live before the Lamatic runtime
-// tail (which references the runtime-injected `LLMNode_sql_gen` variable and so
-// cannot be executed here). Extract that head, write it to a temp .ts module
-// (Node 24 type-strips the annotations) and expose the real functions so the
-// tests exercise the actual production implementation, not a local copy.
-const tailMarker = '// Execute validation and normalization';
-const funcsSource = scriptSource.slice(0, scriptSource.indexOf(tailMarker));
-
-const tempModule = path.join(
-  os.tmpdir(),
-  `nl-to-sql-validation-${process.pid}-${Date.now()}.ts`
-);
-fs.writeFileSync(
-  tempModule,
-  `${funcsSource}\nmodule.exports = { findOuterTop, normalizeTopClause, stripQuotedStringsAndComments, validateSqlSafety, validateAndNormalizeSql };\n`
-);
-
-const { validateAndNormalizeSql } = require(tempModule);
-fs.unlinkSync(tempModule);
+const { validateAndNormalizeSql } = loadProductionValidator();
 
 // ============================================================================
 // PROMPT CONTRACT CHECKS

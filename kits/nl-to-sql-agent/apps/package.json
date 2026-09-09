@@ -14,17 +14,20 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-slot": "^1.3.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "iron-session": "^8.0.4",
     "lamatic": "0.3.2",
     "lucide-react": "^1.34.0",
-    "next": "14.2.15",
+    "next": "14.2.35",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "react-hook-form": "^7.60.0",
     "react-syntax-highlighter": "^16.1.1",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "zod": "3.25.67"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
@@ -34,7 +37,7 @@
     "@types/react-dom": "^18",
     "@types/react-syntax-highlighter": "^15.5.13",
     "eslint": "^8",
-    "eslint-config-next": "14.2.15",
+    "eslint-config-next": "14.2.35",
     "postcss": "^8.4.38",
     "tailwindcss": "^4.1.9",
     "tsx": "^4.23.13",
