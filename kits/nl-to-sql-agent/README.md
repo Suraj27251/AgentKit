@@ -292,7 +292,7 @@ cd kits/nl-to-sql-agent/apps
 npm install
 ```
 
-Create `.env.local` from `apps/.env.example` and set your Lamatic credentials + deployed flow ID + demo authentication config.
+Create `.env.local` from `.env.example` and set your Lamatic credentials + deployed flow ID + demo authentication config.
 
 ```bash
 npm run dev
