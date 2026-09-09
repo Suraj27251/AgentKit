@@ -39,14 +39,6 @@ const userPrompt = fs.readFileSync(
   'utf8'
 );
 const combinedPrompt = `${systemPrompt}\n${userPrompt}`;
-const flowSource = fs.readFileSync(
-  path.join(__dirname, '..', 'flows', 'nl-to-sql-flow.ts'),
-  'utf8'
-);
-const orchestrateSource = fs.readFileSync(
-  path.join(__dirname, '..', 'apps', 'actions', 'orchestrate.ts'),
-  'utf8'
-);
 
 const promptChecks = [
   {
@@ -73,18 +65,6 @@ const promptChecks = [
   {
     name: 'User prompt forbids intent fields, assumptions and code fences',
     check: () => /do not include an intent field, assumptions, explanations, json, markdown code fences/i.test(userPrompt),
-  },
-  {
-    name: 'User prompt receives the approved schema JSON from the flow trigger',
-    check: () => /APPROVED DATABASE SCHEMA \(JSON\): \{\{triggerNode_1\.output\.schema\}\}/.test(userPrompt),
-  },
-  {
-    name: 'Flow requires the schema trigger input',
-    check: () => /name": "schema"[\s\S]*?required": true/.test(flowSource),
-  },
-  {
-    name: 'Runtime passes configured schema JSON to the flow',
-    check: () => /NL_TO_SQL_DATABASE_SCHEMA/.test(orchestrateSource) && /question: input\.question,\s*schema,/.test(orchestrateSource),
   },
   {
     name: 'Combined prompt contains no JSON-output instruction',

@@ -117,12 +117,7 @@ function loadOrchestrate(getSessionStub) {
   }
   const captured = { flowCalls: [] };
   const sandbox = {
-    process: {
-      env: {
-        MOCK_LAMATIC: 'true',
-        NL_TO_SQL_DATABASE_SCHEMA: '{"tables":[{"name":"Customers","columns":["CustomerId"]}]}',
-      },
-    },
+    process: { env: { MOCK_LAMATIC: 'true' } },
     console,
     setTimeout,
     require: (id) => {
@@ -196,17 +191,6 @@ if (preparationFailed) {
         restricted.error !== 'Mock response returned'
     );
 
-    const approvedResult = await demoModule.exports.executeFlow({
-      question: 'How many customers are active?',
-    });
-    const approvedCall = demoModule.captured.flowCalls[0];
-    test(
-      'Approved demo flow receives the configured schema JSON',
-      approvedResult.success === true &&
-        approvedCall &&
-        approvedCall.payload.question === 'How many customers are active?' &&
-        approvedCall.payload.schema === '{"tables":[{"name":"Customers","columns":["CustomerId"]}]}'
-    );
   }
 
   console.log(`\n${'='.repeat(60)}`);

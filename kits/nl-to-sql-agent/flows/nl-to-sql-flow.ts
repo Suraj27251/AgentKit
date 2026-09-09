@@ -26,8 +26,7 @@ export const meta = {
 
 export const inputs = {
   "triggerNode_1": [
-    { "name": "question", "label": "Question", "type": "string", "required": true },
-    { "name": "schema", "label": "Approved database schema JSON", "type": "string", "required": true }
+    { "name": "question", "label": "Question", "type": "string", "required": true }
   ]
 };
 
