@@ -265,7 +265,7 @@ DEMO_PASSWORD=your-demo-password
 
 Replace `your-demo-username` and `your-demo-password` with your chosen demo credentials. These are local-only for development and testing.
 
-3. Run the app with `npm run dev`.
+1. Run the app with `npm run dev`.
 
 **Security note:** Demo authentication requires **explicit configuration**. The application does not fall back to hardcoded credentials like `demo/demo`. If `DEMO_AUTH_ENABLED` is not set to `"true"`, or if username/password are missing, authentication will fail closed.
 
