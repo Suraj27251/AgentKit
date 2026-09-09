@@ -56,8 +56,8 @@ export default function TopNav() {
           <ThemeToggle />
           <button
             type="button"
-            title="Open navigation"
-            aria-label="Open navigation"
+            title={menuOpen ? "Close navigation" : "Open navigation"}
+            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen(v => !v)}
             className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary md:hidden"

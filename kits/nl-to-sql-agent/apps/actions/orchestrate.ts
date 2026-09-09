@@ -281,23 +281,31 @@ export async function executeFlow(
   } catch (error) {
     console.error("NL-to-SQL flow execution failed", {
       error: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
-    let errorMessage = "Unknown error occurred";
+    // Generic safe client message while preserving server-side diagnostics
+    let errorMessage = "The query service encountered an error. Please try again.";
+
     if (error instanceof Error) {
-      errorMessage = error.message;
       if (error.message.includes("fetch failed")) {
-        errorMessage = "Network error: Unable to connect to the Lamatic service. Please check your internet connection.";
+        errorMessage = "Network error: Unable to connect to the query service. Please check your internet connection.";
       } else if (
         error instanceof LamaticClientError &&
         typeof error.statusCode === "number"
       ) {
-        // Surface the HTTP status reported by the client so the exact reason
-        // (invalid key, forbidden project, expiry, quota) is visible.
-        // Includes no secret material.
-        errorMessage = `Lamatic API rejected the request (status ${error.statusCode}): ${error.message.slice(0, 800)}`;
+        // Surface only the status code class, not the full error details
+        if (error.statusCode === 401 || error.statusCode === 403) {
+          errorMessage = "Authentication error: Please contact your administrator.";
+        } else if (error.statusCode >= 500) {
+          errorMessage = "Service error: The query service is temporarily unavailable. Please try again later.";
+        } else if (error.statusCode === 429) {
+          errorMessage = "Rate limit exceeded: Please wait a moment and try again.";
+        } else {
+          errorMessage = `Query service error (${error.statusCode}): Please try again or contact support.`;
+        }
       } else if (error.message.includes("API key")) {
-        errorMessage = "Authentication error: Please check your LAMATIC_API_KEY configuration.";
+        errorMessage = "Authentication error: Please contact your administrator.";
       }
     }
 

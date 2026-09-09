@@ -13,7 +13,7 @@ import BrandLogo from "@/components/BrandLogo";
 
 const loginSchema = z.object({
   username: z.string().trim().min(1, "Username is required"),
-  password: z.string().trim().min(1, "Password is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;

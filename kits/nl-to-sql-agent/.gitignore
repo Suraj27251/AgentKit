@@ -16,6 +16,9 @@ test-*.js
 list-*.js
 opencode.json
 
+# Local analysis notes (not shipped with the kit)
+PROJECT-ANALYSIS.md
+
 # Test / runtime output artifacts
 dev-out.txt
 pw-out.txt
