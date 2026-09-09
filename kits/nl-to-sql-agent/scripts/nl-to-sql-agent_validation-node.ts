@@ -172,21 +172,131 @@ function findOuterTop(sql: string): { value: number; clauseStart: number; clause
  * @param sql - The SQL query to normalize
  * @returns Object with normalized SQL and a flag indicating if limit was capped
  */
+/**
+ * Find the position where a TOP clause should be inserted for a SQL query.
+ * Returns the index where "TOP 1000" should be placed, or -1 if we cannot
+ * confidently locate the insertion point.
+ */
+function findSelectInsertionPoint(sql: string): number {
+  let depth = 0;
+  let i = 0;
+  const n = sql.length;
+
+  while (i < n) {
+    const ch = sql[i];
+
+    // Skip single-quoted string literals with '' escaping.
+    if (ch === "'") {
+      i++;
+      while (i < n) {
+        if (sql[i] === "'") {
+          if (sql[i + 1] === "'") { i += 2; continue; }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Skip double-quoted strings/identifiers with "" escaping.
+    if (ch === '"') {
+      i++;
+      while (i < n) {
+        if (sql[i] === '"') {
+          if (sql[i + 1] === '"') { i += 2; continue; }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Skip line comments (-- to end of line)
+    if (ch === '-' && sql[i + 1] === '-') {
+      while (i < n && sql[i] !== '\n' && sql[i] !== '\r') i++;
+      continue;
+    }
+
+    // Skip block comments (/* ... */)
+    if (ch === '/' && sql[i + 1] === '*') {
+      i += 2;
+      while (i < n && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+
+    // Skip bracketed T-SQL identifiers ([...], with ]] escaping)
+    if (ch === '[') {
+      i++;
+      while (i < n) {
+        if (sql[i] === ']') {
+          if (sql[i + 1] === ']') { i += 2; continue; }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Track parenthesis depth
+    if (ch === '(') { depth++; i++; continue; }
+    if (ch === ')') { if (depth > 0) depth--; i++; continue; }
+
+    // At depth 0, look for SELECT (case-insensitive)
+    if (depth === 0 && i + 6 <= n && sql.slice(i, i + 6).toUpperCase() === 'SELECT') {
+      // Check word boundaries
+      const before = i === 0 || !/[a-zA-Z0-9_]/.test(sql[i - 1]);
+      const afterPos = i + 6;
+      const after = afterPos >= n || !/[a-zA-Z0-9_]/.test(sql[afterPos]);
+
+      if (before && after) {
+        // Found outer SELECT, return position after "SELECT"
+        let j = i + 6;
+        // Skip optional ALL or DISTINCT modifier
+        while (j < n && /\s/.test(sql[j])) j++;
+
+        // Check for DISTINCT
+        if (j + 8 <= n && sql.slice(j, j + 8).toUpperCase() === 'DISTINCT') {
+          j += 8;
+          while (j < n && /\s/.test(sql[j])) j++;
+        }
+        // Check for ALL (less common, but valid)
+        else if (j + 3 <= n && sql.slice(j, j + 3).toUpperCase() === 'ALL') {
+          j += 3;
+          while (j < n && /\s/.test(sql[j])) j++;
+        }
+
+        return j;
+      }
+    }
+
+    i++;
+  }
+
+  return -1; // Cannot confidently locate the outer SELECT
+}
+
 function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: boolean } {
   const outerTop = findOuterTop(sql);
 
   if (outerTop === null) {
     // No outer TOP clause found, add TOP MAX_RESULT_ROWS at the beginning of
-    // the outer SELECT. Handles SELECT or SELECT DISTINCT.
-    const selectDistinctPattern = /^(\s*SELECT\s+DISTINCT\s+)/i;
-    const selectPattern = /^(\s*SELECT\s+)/i;
+    // the outer SELECT using the stateful scanner
+    const insertionPoint = findSelectInsertionPoint(sql);
 
-    let normalizedSql: string;
-    if (selectDistinctPattern.test(sql)) {
-      normalizedSql = sql.replace(selectDistinctPattern, `$1TOP ${MAX_RESULT_ROWS} `);
-    } else {
-      normalizedSql = sql.replace(selectPattern, `$1TOP ${MAX_RESULT_ROWS} `);
+    if (insertionPoint === -1) {
+      // Fail closed: cannot locate outer SELECT, mark as unsafe
+      return {
+        normalizedSql: sql, // Leave SQL unchanged, validation will reject it
+        limitCapped: false,
+      };
     }
+
+    // Insert "TOP MAX_RESULT_ROWS " at the insertion point
+    const normalizedSql = sql.slice(0, insertionPoint) + `TOP ${MAX_RESULT_ROWS} ` + sql.slice(insertionPoint);
 
     return {
       normalizedSql,
@@ -493,6 +603,18 @@ function validateAndNormalizeSql(generatedSql: string): {
 
   // Step 2: Normalize TOP clause
   const { normalizedSql, limitCapped } = normalizeTopClause(originalSql);
+
+  // If normalizeTopClause cannot confidently locate the outer SELECT (insertionPoint = -1),
+  // it returns the original SQL unchanged. We must fail closed.
+  if (normalizedSql === originalSql && findSelectInsertionPoint(originalSql) === -1) {
+    return {
+      safeSql: '',
+      isSafe: false,
+      error: 'Cannot confidently enforce result limits. Query may bypass row-limit safety.',
+      limitCapped: false,
+      originalSql,
+    };
+  }
 
   return {
     safeSql: normalizedSql,

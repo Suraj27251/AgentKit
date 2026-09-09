@@ -48,8 +48,13 @@ function aggregateResponse() {
   let results = [];
   let rowCount = 0;
 
-  if (Array.isArray(sqlResults)) {
-    results = sqlResults;
+  // MSSQL node returns rows under the 'Rows' property
+  const mssqlRows = sqlResultsRaw && typeof sqlResultsRaw === 'object' && 'Rows' in sqlResultsRaw
+    ? sqlResultsRaw.Rows
+    : sqlResultsRaw;
+
+  if (Array.isArray(mssqlRows)) {
+    results = mssqlRows;
     rowCount = results.length;
   }
 
