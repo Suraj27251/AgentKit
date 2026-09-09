@@ -5,6 +5,8 @@
  * - Ensures SQL is a single SELECT statement
  * - Blocks write operations (INSERT, UPDATE, DELETE, etc.)
  * - Blocks DDL operations (CREATE, ALTER, DROP, etc.)
+ * - Blocks ad-hoc rowset functions (OPENROWSET, OPENQUERY, OPENDATASOURCE,
+ *   OPENXML) that can initiate outbound connections from the database host
  * - Blocks SELECT ... INTO (table creation, not read-only)
  * - Blocks TOP ... PERCENT (can return the whole table, bypassing row limit)
  * - Blocks TOP ... WITH TIES (can return > MAX_RESULT_ROWS rows)
@@ -38,6 +40,10 @@ const UNSAFE_KEYWORDS = [
   'CALL',
   'EXEC',
   'EXECUTE',
+  'OPENROWSET',
+  'OPENQUERY',
+  'OPENDATASOURCE',
+  'OPENXML',
 ];
 
 /**

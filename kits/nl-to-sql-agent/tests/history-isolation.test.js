@@ -15,8 +15,9 @@
  * historyStorageKey / parseStoredHistory / clearStoredHistory functions (and
  * the HISTORY_STORAGE_PREFIX constant) from the production source into a
  * temporary, React-free .ts module and requires it under Node's native
- * TypeScript type-stripping (Node >= 22.6) — proving the actual production
- * logic rather than a re-implementation.
+ * TypeScript type-stripping (Node >= 22.18, where it is unflagged) or the tsx
+ * loader used by the shared test command — proving the actual production logic
+ * rather than a re-implementation.
  */
 
 const fs = require('fs');
@@ -85,7 +86,7 @@ try {
     typeof historyFns.parseStoredHistory === 'function' &&
     typeof historyFns.clearStoredHistory === 'function';
 } catch (err) {
-  test('Extracting production functions into a runnable module fails', true, String(err));
+  test('Extracting production functions into a runnable module', false, String(err));
 } finally {
   try {
     fs.unlinkSync(tempModule);
@@ -258,7 +259,7 @@ const layoutSource = fs.readFileSync(
 
 test('Workspace page scopes useHistory to the session user', /\{ history, addEntry, toggleFavorite \} = useHistory\(userId\)/.test(workspaceSource));
 
-test('History page scopes useHistory to the session user', /\{ history, toggleFavorite, clearHistory \} = useHistory\(userId\)/.test(historyPageSource));
+test('History page scopes useHistory to the session user', /\{ history, toggleFavorite, deleteEntry, clearHistory \} = useHistory\(userId\)/.test(historyPageSource));
 
 test('Protected layout provides the session userId to the app', /userId=\{session\.userId \?\? null\}/.test(layoutSource));
 

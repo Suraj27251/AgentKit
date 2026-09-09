@@ -3,6 +3,6 @@ import { destroySession } from '@/lib/session';
 
 export async function POST(request: Request) {
   await destroySession();
-  // Redirect to home page after logout
-  return NextResponse.redirect(new URL('/', request.url));
+  // 303 forces the browser to follow the redirect with GET after the POST.
+  return NextResponse.redirect(new URL('/', request.url), 303);
 }

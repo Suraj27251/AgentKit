@@ -64,26 +64,39 @@ export function clearStoredHistory(userId?: string | null): void {
 
 export function useHistory(userId?: string | null) {
   const storageKey = historyStorageKey(userId);
-  const [history, setHistory] = useState<HistoryEntry[]>(() => {
-    if (typeof window === 'undefined') return [];
-    return parseStoredHistory(localStorage.getItem(storageKey));
-  });
+
+  // Start empty so the hydration render matches the server HTML (Next.js
+  // prerenders this client component where localStorage does not exist). The
+  // mount effect below loads the persisted entries immediately after mount.
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  // The storage key whose persisted history has been loaded into `history`.
+  // Persistence is skipped until the current key has been hydrated, so a commit
+  // that switches users (or mounts fresh) can never write the previous user's
+  // entries under the newly resolved key.
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
 
   // Reload when the authenticated user changes (login as a different account).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     setHistory(parseStoredHistory(localStorage.getItem(storageKey)));
+    setHydratedKey(storageKey);
   }, [storageKey]);
 
-  // Persist to localStorage whenever history changes.
+  // Persist to localStorage whenever history changes, after the current key has
+  // been hydrated with its stored entries.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (hydratedKey !== storageKey) return;
     localStorage.setItem(storageKey, JSON.stringify(history));
-  }, [storageKey, history]);
+  }, [storageKey, history, hydratedKey]);
 
   const addEntry = useCallback((entry: Omit<HistoryEntry, 'id' | 'timestamp' | 'favorite'>) => {
     const newEntry: HistoryEntry = {
-      id: Math.random().toString(36).substr(2, 9),
+      id:
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       ...entry,
       timestamp: new Date().toISOString(),
       favorite: false,
@@ -100,9 +113,13 @@ export function useHistory(userId?: string | null) {
     );
   }, []);
 
+  const deleteEntry = useCallback((id: string) => {
+    setHistory(prev => prev.filter(entry => entry.id !== id));
+  }, []);
+
   const clearHistory = useCallback(() => {
     setHistory([]);
   }, []);
 
-  return { history, addEntry, toggleFavorite, clearHistory };
+  return { history, addEntry, toggleFavorite, deleteEntry, clearHistory };
 }

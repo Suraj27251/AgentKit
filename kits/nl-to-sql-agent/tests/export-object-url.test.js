@@ -41,7 +41,7 @@ const pageSource = fs.readFileSync(
 
 // ---- Mock browser environment ----
 function buildEnvironment() {
-  const events = { created: [], revoked: [], downloaded: [], anchors: [] };
+  const events = { created: [], revoked: [], downloaded: [], anchors: [], deferred: [] };
 
   const document = {
     createElement(tag) {
@@ -78,8 +78,12 @@ function buildEnvironment() {
     },
   };
 
-  // Invoke the deferred cleanup immediately so revocation is deterministic.
-  const setTimeout = (fn) => { fn(); };
+  // Record the deferral, then invoke it immediately so revocation is
+  // deterministic. `events.deferred` proves the handler did not revoke inline.
+  const setTimeout = (fn) => {
+    events.deferred.push(true);
+    fn();
+  };
 
   return { events, document, URL, setTimeout };
 }
@@ -113,6 +117,7 @@ if (csvHandlerMatch) {
     env.events.revoked.length === 1 && env.events.revoked[0] === env.events.created[0],
     `created=${JSON.stringify(env.events.created)} revoked=${JSON.stringify(env.events.revoked)}`
   );
+  test('CSV deferred the revocation instead of revoking inline', env.events.deferred.length === 1);
   test('CSV download was triggered', env.events.downloaded.length === 1 && env.events.downloaded[0] === env.events.created[0]);
   test('CSV anchor was appended then removed', env.document.body.appended.length === 1 && env.document.body.removed.length === 1);
 }
@@ -141,6 +146,7 @@ if (jsonHandlerMatch) {
     env.events.revoked.length === 1 && env.events.revoked[0] === env.events.created[0],
     `created=${JSON.stringify(env.events.created)} revoked=${JSON.stringify(env.events.revoked)}`
   );
+  test('JSON deferred the revocation instead of revoking inline', env.events.deferred.length === 1);
   test('JSON download was triggered', env.events.downloaded.length === 1 && env.events.downloaded[0] === env.events.created[0]);
   test('JSON anchor was appended then removed', env.document.body.appended.length === 1 && env.document.body.removed.length === 1);
 }

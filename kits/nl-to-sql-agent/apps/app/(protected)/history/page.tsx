@@ -8,22 +8,20 @@ import {
   ArrowLeft, Star, Trash2, Copy, Search, Play, CheckCircle2,
   CircleAlert, ShieldCheck, ShieldAlert,
 } from "lucide-react";
-import { useHistory, historyStorageKey, HistoryEntry } from "@/lib/history";
+import { useHistory, HistoryEntry } from "@/lib/history";
 import { useSessionUserId } from "@/components/session-provider";
 import { cn } from "@/lib/utils";
 
 export default function HistoryPage() {
   const userId = useSessionUserId();
-  const { history, toggleFavorite, clearHistory } = useHistory(userId);
+  const { history, toggleFavorite, deleteEntry, clearHistory } = useHistory(userId);
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleDelete = (id: string) => {
-    const updated = history.filter((e) => e.id !== id);
-    localStorage.setItem(historyStorageKey(userId), JSON.stringify(updated));
-    window.location.reload();
+    deleteEntry(id);
   };
 
   const handleCopy = async (id: string, text: string) => {

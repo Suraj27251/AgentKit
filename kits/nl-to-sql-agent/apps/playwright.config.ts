@@ -27,6 +27,10 @@ const PORT = '3000';
 const BASE_URL = `http://localhost:${PORT}`;
 const DEMO_USERNAME = process.env.DEMO_USERNAME || 'demo';
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'demo';
+// Mirror the resolved defaults into the test process so example.spec.ts and the
+// spawned server always use the same credentials.
+process.env.DEMO_USERNAME = DEMO_USERNAME;
+process.env.DEMO_PASSWORD = DEMO_PASSWORD;
 const TEST_SESSION_PASSWORD = 'test-session-password-at-least-32-chars';
 
 export default defineConfig({
@@ -57,7 +61,6 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
     env: {
-      ...process.env,
       SESSION_PASSWORD: process.env.SESSION_PASSWORD || TEST_SESSION_PASSWORD,
       DEMO_AUTH_ENABLED: process.env.DEMO_AUTH_ENABLED || 'true',
       DEMO_USERNAME,

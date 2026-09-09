@@ -75,9 +75,11 @@ test.describe('Queryline E2E Tests', () => {
     // Submit the question
     await page.click('button:has-text("Ask Question")');
 
-    // Submitting must invoke the flow: the entry controls enter a loading state
-    // while the request is dispatched to the Lamatic flow.
-    await expect(page.locator('button:has-text("Ask Question")')).toBeDisabled();
+    // Submitting must invoke the flow. Assert an outcome that does not vanish
+    // when the request settles quickly: either the loading state or the result.
+    await expect(
+      page.locator('button:has-text("Ask Question")[disabled], text=Query Results, text=Generated SQL')
+    ).toBeVisible();
   });
 
   test('should persist theme preference', async ({ page }) => {

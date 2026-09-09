@@ -14,153 +14,42 @@
  *    by the SQL validator, which is why the prompt must be SQL-only.
  */
 
-// Test configuration
-const MAX_RESULT_ROWS = 1000;
+// ============================================================================
+// LOAD THE REAL PRODUCTION IMPLEMENTATION
+// ============================================================================
 
-// Unsafe keywords that indicate write or DDL operations
-const UNSAFE_KEYWORDS = [
-  'INSERT',
-  'UPDATE',
-  'DELETE',
-  'DROP',
-  'ALTER',
-  'CREATE',
-  'TRUNCATE',
-  'MERGE',
-  'CALL',
-  'EXEC',
-  'EXECUTE',
-  'INTO',
-];
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-/**
- * Normalize TOP clause to enforce maximum result limit
- */
-function normalizeTopClause(sql) {
-  const topPattern = /\bTOP\s+(\()?(\d+)(\))?(?=\s|$)/i;
-  const match = sql.match(topPattern);
+const scriptSource = fs.readFileSync(
+  path.join(__dirname, '..', 'scripts', 'nl-to-sql-agent_validation-node.ts'),
+  'utf8'
+);
 
-  if (!match) {
-    const selectDistinctPattern = /^(\s*SELECT\s+DISTINCT\s+)/i;
-    const selectPattern = /^(\s*SELECT\s+)/i;
+// The production script's function definitions live before the Lamatic runtime
+// tail (which references the runtime-injected `LLMNode_sql_gen` variable and so
+// cannot be executed here). Extract that head, write it to a temp .ts module
+// (Node 24 type-strips the annotations) and expose the real functions so the
+// tests exercise the actual production implementation, not a local copy.
+const tailMarker = '// Execute validation and normalization';
+const funcsSource = scriptSource.slice(0, scriptSource.indexOf(tailMarker));
 
-    let normalizedSql;
-    if (selectDistinctPattern.test(sql)) {
-      normalizedSql = sql.replace(selectDistinctPattern, `$1TOP ${MAX_RESULT_ROWS} `);
-    } else {
-      normalizedSql = sql.replace(selectPattern, `$1TOP ${MAX_RESULT_ROWS} `);
-    }
+const tempModule = path.join(
+  os.tmpdir(),
+  `nl-to-sql-validation-${process.pid}-${Date.now()}.ts`
+);
+fs.writeFileSync(
+  tempModule,
+  `${funcsSource}\nmodule.exports = { findOuterTop, normalizeTopClause, stripQuotedStringsAndComments, validateSqlSafety, validateAndNormalizeSql };\n`
+);
 
-    return { normalizedSql, limitCapped: false };
-  }
-
-  const topValue = parseInt(match[2], 10);
-  if (topValue > MAX_RESULT_ROWS) {
-    const normalizedSql = sql.replace(topPattern, `TOP ${MAX_RESULT_ROWS}`);
-    return { normalizedSql, limitCapped: true };
-  }
-
-  return { normalizedSql: sql, limitCapped: false };
-}
-
-/**
- * Validate that SQL is safe (mirrors scripts/nl-to-sql-agent_validation-node.ts)
- */
-function validateSqlSafety(sql) {
-  const trimmedSql = sql.trim();
-
-  if (!trimmedSql) {
-    return { isSafe: false, error: 'SQL query cannot be empty.' };
-  }
-
-  const unsafeKeywordPattern = new RegExp(
-    `\\b(${UNSAFE_KEYWORDS.join('|')})\\b`,
-    'i'
-  );
-
-  if (unsafeKeywordPattern.test(trimmedSql)) {
-    return {
-      isSafe: false,
-      error: 'SQL contains write or DDL operations. Only read-only SELECT queries are allowed.',
-    };
-  }
-
-  if (!/^\s*SELECT\b/i.test(trimmedSql)) {
-    return {
-      isSafe: false,
-      error: 'SQL must start with SELECT. Only read-only queries are allowed.',
-    };
-  }
-
-  // Block SELECT ... INTO (creates/populates a table - not read-only)
-  if (/\bSELECT\b[\s\S]*?\bINTO\b/i.test(trimmedSql)) {
-    return {
-      isSafe: false,
-      error: 'SQL contains SELECT INTO, which creates or populates a table. Only read-only SELECT queries are allowed.',
-    };
-  }
-
-  // Block TOP ... PERCENT (can return the entire table, bypassing the limit)
-  if (/\bTOP\s+\(?\d+\)?\s*PERCENT\b/i.test(trimmedSql)) {
-    return {
-      isSafe: false,
-      error: 'TOP PERCENT is not allowed because it can bypass the maximum result limit.',
-    };
-  }
-
-  // Block TOP ... WITH TIES (can return more than the maximum result limit)
-  if (/\bTOP\s+\(?\d+\)?\s*WITH\s+TIES\b/i.test(trimmedSql)) {
-    return {
-      isSafe: false,
-      error: 'TOP WITH TIES is not allowed because it can return more than the maximum result limit.',
-    };
-  }
-
-  const sqlWithoutTrailingSemicolon = trimmedSql.replace(/;\s*$/, '');
-  if (sqlWithoutTrailingSemicolon.includes(';')) {
-    return {
-      isSafe: false,
-      error: 'Multiple SQL statements are not allowed. Only a single SELECT is permitted.',
-    };
-  }
-
-  return { isSafe: true, error: '' };
-}
-
-/**
- * Main validation function
- */
-function validateAndNormalizeSql(generatedSql) {
-  const originalSql = generatedSql;
-  const safetyCheck = validateSqlSafety(originalSql);
-
-  if (!safetyCheck.isSafe) {
-    return {
-      safeSql: '',
-      isSafe: false,
-      error: safetyCheck.error,
-      limitCapped: false,
-      originalSql,
-    };
-  }
-
-  const { normalizedSql, limitCapped } = normalizeTopClause(originalSql);
-
-  return {
-    safeSql: normalizedSql,
-    isSafe: true,
-    error: '',
-    limitCapped,
-    originalSql,
-  };
-}
+const { validateAndNormalizeSql } = require(tempModule);
+fs.unlinkSync(tempModule);
 
 // ============================================================================
 // PROMPT CONTRACT CHECKS
 // ============================================================================
-
-const fs = require('fs');
-const path = require('path');
 
 const promptsDir = path.join(__dirname, '..', 'prompts');
 const systemPrompt = fs.readFileSync(

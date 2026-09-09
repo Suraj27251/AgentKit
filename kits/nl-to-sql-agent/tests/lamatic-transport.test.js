@@ -194,6 +194,14 @@ function extractFunction(src, name) {
 
 const validateLamaticEndpoint = extractFunction(clientSource, 'validateLamaticEndpoint');
 
+if (typeof validateLamaticEndpoint !== 'function') {
+  console.error(
+    '❌ Could not extract validateLamaticEndpoint from lamatic-client.ts. ' +
+      'The production signature changed. Update extractFunction before trusting this suite.'
+  );
+  process.exit(1);
+}
+
 function expectValid(url) {
   try {
     validateLamaticEndpoint(url);
@@ -208,7 +216,12 @@ function expectRejected(url) {
     validateLamaticEndpoint(url);
     return false;
   } catch (e) {
-    return typeof e.message === 'string' && e.message.length > 0;
+    // A TypeError/ReferenceError means the harness broke, not that the URL was rejected.
+    return e instanceof Error &&
+      !(e instanceof TypeError) &&
+      !(e instanceof ReferenceError) &&
+      typeof e.message === 'string' &&
+      e.message.length > 0;
   }
 }
 

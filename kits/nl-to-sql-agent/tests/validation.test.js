@@ -213,6 +213,31 @@ const testCases = [
     expectedSafe: false,
     expectedErrorPattern: /write or DDL/i,
   },
+  // Ad-hoc rowset functions (SSRF via outbound DB connections)
+  {
+    name: 'OPENROWSET is rejected',
+    input: "SELECT * FROM OPENROWSET('SQLNCLI', 'Server=evil;Trusted_Connection=yes;', 'SELECT 1')",
+    expectedSafe: false,
+    expectedErrorPattern: /write or DDL/i,
+  },
+  {
+    name: 'OPENQUERY is rejected',
+    input: "SELECT * FROM OPENQUERY([LinkedServer], 'SELECT 1')",
+    expectedSafe: false,
+    expectedErrorPattern: /write or DDL/i,
+  },
+  {
+    name: 'OPENDATASOURCE is rejected',
+    input: "SELECT * FROM OPENDATASOURCE('SQLNCLI', 'Server=evil;Trusted_Connection=yes;').Database.dbo.Table",
+    expectedSafe: false,
+    expectedErrorPattern: /write or DDL/i,
+  },
+  {
+    name: 'OPENXML is rejected',
+    input: "SELECT * FROM OPENXML(@doc, '/root/item', 1)",
+    expectedSafe: false,
+    expectedErrorPattern: /write or DDL/i,
+  },
   // SELECT INTO (table creation, not read-only)
   {
     name: 'SELECT INTO statement',

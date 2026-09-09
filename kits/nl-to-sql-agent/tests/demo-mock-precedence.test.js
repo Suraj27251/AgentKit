@@ -82,9 +82,12 @@ test(
     /return mockResponse\(\);/.test(orchestrateSource)
 );
 
+const blockedIndex = orchestrateSource.indexOf('decision.kind === "blocked"');
+const mockIndex = orchestrateSource.indexOf('decision.kind === "mock"');
 test(
   'Demo restriction returns blocked before auth/mock/flow',
-  orchestrateSource.indexOf('decision.kind === "blocked"') < orchestrateSource.indexOf('decision.kind === "mock"')
+  blockedIndex >= 0 && mockIndex >= 0 && blockedIndex < mockIndex,
+  `blockedIndex=${blockedIndex} mockIndex=${mockIndex}`
 );
 
 test(

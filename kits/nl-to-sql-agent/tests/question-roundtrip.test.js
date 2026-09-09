@@ -47,6 +47,12 @@ const effectMatch = pageSource.match(
 const effectBlock = effectMatch ? effectMatch[0] : '';
 
 test(
+  'Question-read effect was located in the Workspace source',
+  effectMatch !== null,
+  'the useEffect extraction regex no longer matches page.tsx'
+);
+
+test(
   'Workspace reads question via searchParams.get and sets it directly',
   /const paramQuestion = searchParams\.get\("question"\);/.test(effectBlock) &&
     /setQuestion\(paramQuestion\);/.test(effectBlock)

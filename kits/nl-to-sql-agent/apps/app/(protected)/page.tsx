@@ -15,7 +15,7 @@ import { useSessionUserId } from "@/components/session-provider";
 import { csvEscapeCell } from "@/lib/csv";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import SyntaxHighlighter from 'react-syntax-highlighter';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import type { CSSProperties } from 'react';
 
 const saharaPrism: Record<string, CSSProperties> = {
@@ -152,7 +152,7 @@ function HomePageContent() {
     // Convert results to CSV
     const headers = Object.keys(result.results[0] || {});
     const csvContent = [
-      headers.join(","),
+      headers.map(h => csvEscapeCell(h)).join(","),
       ...result.results.map((row: Record<string, unknown>) =>
         headers.map(h => csvEscapeCell(row[h])).join(",")
       )
@@ -521,7 +521,7 @@ function HomePageContent() {
               </span>
               {rowCount > 100 && (
                 <span className="italic">
-                  Only the first {rowCount.toLocaleString()} rows are shown
+                  Large result set: {rowCount.toLocaleString()} rows returned
                 </span>
               )}
             </div>

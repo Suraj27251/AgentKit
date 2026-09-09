@@ -91,7 +91,7 @@ export class LamaticClientError extends Error {
   }
 }
 
-type LamaticExecutionStatus = "success" | "error";
+type LamaticExecutionStatus = "success" | "error" | "failed";
 
 interface LamaticExecutionResponse {
   status: LamaticExecutionStatus;
@@ -123,7 +123,7 @@ function normalizeLamaticResponse(
     };
   }
 
-  if (response.status === "error") {
+  if (response.status === "error" || response.status === "failed") {
     const detail = response.message || "Lamatic workflow execution failed.";
     const statusCode = response.statusCode;
 

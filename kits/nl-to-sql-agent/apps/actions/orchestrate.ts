@@ -1,6 +1,10 @@
 "use server";
 
-import { executeLamaticFlow, NL_TO_SQL_FLOW_ID } from "@/lib/lamatic-client";
+import {
+  executeLamaticFlow,
+  NL_TO_SQL_FLOW_ID,
+  LamaticClientError,
+} from "@/lib/lamatic-client";
 import { getSession } from "@/lib/session";
 import {
   isApprovedDemoQuestion,
@@ -284,20 +288,16 @@ export async function executeFlow(
       errorMessage = error.message;
       if (error.message.includes("fetch failed")) {
         errorMessage = "Network error: Unable to connect to the Lamatic service. Please check your internet connection.";
-      } else if (error.message.includes("API key") || error.message.includes("401") || error.message.includes("403")) {
-        // Surface the raw HTTP status/body from Lamatic so the exact reason
-        // (invalid key, forbidden project, expiry, quota) is visible instead
-        // of a generic message. Includes no secret material.
-        const httpMatch = error.message.match(
-          /Lamatic API error \((\d+)\):\s*([\s\S]*)/
-        );
-        if (httpMatch) {
-          const [, status, body] = httpMatch;
-          const trimmedBody = body.trim().slice(0, 800);
-          errorMessage = `Lamatic API rejected the request (status ${status}): ${trimmedBody}`;
-        } else {
-          errorMessage = `Authentication error (${error.message}): Please check your LAMATIC_API_KEY configuration.`;
-        }
+      } else if (
+        error instanceof LamaticClientError &&
+        typeof error.statusCode === "number"
+      ) {
+        // Surface the HTTP status reported by the client so the exact reason
+        // (invalid key, forbidden project, expiry, quota) is visible.
+        // Includes no secret material.
+        errorMessage = `Lamatic API rejected the request (status ${error.statusCode}): ${error.message.slice(0, 800)}`;
+      } else if (error.message.includes("API key")) {
+        errorMessage = "Authentication error: Please check your LAMATIC_API_KEY configuration.";
       }
     }
 

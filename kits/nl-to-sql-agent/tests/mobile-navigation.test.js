@@ -61,7 +61,7 @@ test(
 // --- Desktop navigation preserved and only shown from md ---
 test(
   'Desktop nav remains hidden below md and visible at md+',
-  /<nav className="hidden h-full items-end gap-8 md:flex">/.test(topNavSource)
+  /<nav className="[^"]*\bhidden\b[^"]*\bmd:flex\b[^"]*">/.test(topNavSource)
 );
 
 // --- Accessible mobile menu button ---

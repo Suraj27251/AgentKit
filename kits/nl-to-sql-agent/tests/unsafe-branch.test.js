@@ -17,7 +17,27 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+
+// Load the REAL production validator so the blocked-path contract is asserted
+// against the same implementation the flow executes, never a local copy.
+const scriptSource = fs.readFileSync(
+  path.join(__dirname, '..', 'scripts', 'nl-to-sql-agent_validation-node.ts'),
+  'utf8'
+);
+const tailMarker = '// Execute validation and normalization';
+const funcsSource = scriptSource.slice(0, scriptSource.indexOf(tailMarker));
+const tempModule = path.join(
+  os.tmpdir(),
+  `nl-to-sql-unsafe-${process.pid}-${Date.now()}.ts`
+);
+fs.writeFileSync(
+  tempModule,
+  `${funcsSource}\nmodule.exports = { findOuterTop, normalizeTopClause, stripQuotedStringsAndComments, validateSqlSafety, validateAndNormalizeSql };\n`
+);
+const { validateAndNormalizeSql } = require(tempModule);
+fs.unlinkSync(tempModule);
 
 let passed = 0;
 let failed = 0;
@@ -131,42 +151,9 @@ function aggregateUnsafe(validationOutput) {
   return null;
 }
 
-// Mirror of the relevant validator rejections (SELECT-only, write/DDL, SELECT INTO).
-const UNSAFE_KEYWORDS = [
-  'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE',
-  'TRUNCATE', 'MERGE', 'CALL', 'EXEC', 'EXECUTE',
-];
-
-function stripQuotedStringsAndComments(sql) {
-  return sql
-    .replace(/'(?:[^']|'')*'/g, '')
-    .replace(/"(?:[^"]|"")*"/g, '')
-    .replace(/--[^\n]*/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
-}
-
-function validateUnsafe(sql) {
-  const trimmed = sql.trim();
-  if (!trimmed) {
-    return { isSafe: false, error: 'SQL query cannot be empty.', safeSql: '', limitCapped: false, originalSql: sql };
-  }
-  const kw = new RegExp(`\\b(${UNSAFE_KEYWORDS.join('|')})\\b`, 'i');
-  if (kw.test(trimmed)) {
-    return { isSafe: false, error: 'SQL contains write or DDL operations. Only read-only SELECT queries are allowed.', safeSql: '', limitCapped: false, originalSql: sql };
-  }
-  if (!/^\s*SELECT\b/i.test(trimmed)) {
-    return { isSafe: false, error: 'SQL must start with SELECT. Only read-only queries are allowed.', safeSql: '', limitCapped: false, originalSql: sql };
-  }
-  const stripped = stripQuotedStringsAndComments(trimmed);
-  if (/\bSELECT\b[\s\S]*?\bINTO\b/i.test(stripped)) {
-    return { isSafe: false, error: 'SQL contains SELECT INTO, which creates or populates a table. Only read-only SELECT queries are allowed.', safeSql: '', limitCapped: false, originalSql: sql };
-  }
-  const withoutTrailing = trimmed.replace(/;\s*$/, '');
-  if (withoutTrailing.includes(';')) {
-    return { isSafe: false, error: 'Multiple SQL statements are not allowed. Only a single SELECT is permitted.', safeSql: '', limitCapped: false, originalSql: sql };
-  }
-  return { isSafe: true, safeSql: sql, error: '', limitCapped: false, originalSql: sql };
-}
+// The blocked cases below run through the REAL production
+// validateAndNormalizeSql (loaded at the top of this file), so the unsafe-path
+// contract is asserted against the same validator the flow executes.
 
 const blockedCases = [
   { name: 'DELETE statement', input: 'DELETE FROM Customers;' },
@@ -176,7 +163,7 @@ const blockedCases = [
 ];
 
 blockedCases.forEach(({ name, input }) => {
-  const validation = validateUnsafe(input);
+  const validation = validateAndNormalizeSql(input);
   const aggregated = aggregateUnsafe(validation);
 
   test(`${name} is rejected`, validation.isSafe === false);
