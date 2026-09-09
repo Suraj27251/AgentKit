@@ -89,6 +89,11 @@ export function useHistory(userId?: string | null) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (hydratedKey !== storageKey) return;
+
+    // Skip initial write after hydration (history loaded from storage)
+    const isInitialHydration = history.length === 0;
+    if (isInitialHydration) return;
+
     localStorage.setItem(storageKey, JSON.stringify(history));
   }, [storageKey, history, hydratedKey]);
 
