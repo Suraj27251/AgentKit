@@ -92,6 +92,7 @@ if (process.env.DEMO_AUTH_ENABLED === "true") {
   test('should persist theme preference', async ({ page }) => {
     const { username, password } = demoCredentials();
 
+    await page.goto('/login');
     await page.fill('input[name="username"]', username);
     await page.fill('input[name="password"]', password);
     await page.click('button[type="submit"]');

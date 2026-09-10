@@ -67,7 +67,7 @@ test(
 // --- Accessible mobile menu button ---
 test(
   'Mobile menu is opened by a real <button> (not a div)',
-  /<button[\s\S]*?aria-label=\{menuOpen \? "Close navigation" : "Open navigation"\}[\s\S]*?>/.test(topNavSource)
+  /<button\b[^>]*?aria-label=\{menuOpen \? "Close navigation" : "Open navigation"\}/.test(topNavSource)
 );
 test(
   'Mobile menu button has an accessible label',

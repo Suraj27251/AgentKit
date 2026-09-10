@@ -278,13 +278,13 @@ function HomePageContent() {
 
         {/* Warnings */}
         {hasWarnings && (
-          <div className="flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-container p-4">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-on-warning-container" />
             <div>
-              <h3 className="mb-1 font-headline text-lg font-medium text-amber-800 dark:text-amber-200">
+              <h3 className="mb-1 font-headline text-lg font-medium text-on-warning-container">
                 Warnings
               </h3>
-              <ul className="list-inside list-disc space-y-1 text-sm text-amber-700 dark:text-amber-300">
+              <ul className="list-inside list-disc space-y-1 text-sm text-on-warning-container/90">
                 {result.warnings!.map((warning: string, index: number) => (
                   <li key={index}>{warning}</li>
                 ))}
@@ -516,9 +516,9 @@ function HomePageContent() {
         {hasResults &&
           result.results.length === 1 &&
           Object.values(result.results[0]).every(v => v === "..." || v === "string" || v === "number") && (
-          <div className="flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <p className="text-sm text-amber-700 dark:text-amber-300">
+          <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-container p-4">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-on-warning-container" />
+            <p className="text-sm text-on-warning-container/90">
               <strong>Placeholder data detected.</strong> The results contain schema defaults,
               not real database values. The Microsoft SQL Server node may not be connected to a
               database, or its output mapping is not configured.

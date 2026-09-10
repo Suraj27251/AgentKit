@@ -29,8 +29,8 @@ const TAIL_MARKER = '// Execute validation and normalization';
 function loadProductionValidator() {
   if (typeof stripTypeScriptTypes !== 'function') {
     throw new Error(
-      'This suite requires Node.js >= 22.6 (module.stripTypeScriptTypes). ' +
-        'The kit tests already require modern Node for require() of .ts sources.'
+      'This suite requires Node.js >= 22.18 (module.stripTypeScriptTypes). ' +
+        'The kit declares engines.node >= 22.18.0 in apps/package.json.'
     );
   }
 

@@ -306,7 +306,7 @@ Open **[http://localhost:3000](http://localhost:3000)**, sign in with your confi
 | `npm run build` | Create an optimized production build |
 | `npm run start` | Serve the production build |
 | `npm run lint` | Run ESLint |
-| `npm run test` | Run the kit's 11 standalone unit test suites (via `tsx`, so Node 20+ works) |
+| `npm run test` | Run the kit's 11 standalone unit test suites (via `tsx`, so Node 22.18+ works) |
 | `npm run test:e2e` | Run the Playwright E2E suite (starts its own dev server on `localhost:3000`) |
 
 ### Unit tests
@@ -317,7 +317,7 @@ The kit ships standalone `node` test suites in `tests/` that exercise the real p
 npm run test
 ```
 
-The command loads TypeScript modules through `tsx`, so it works on Node 20 and later. Individual suites can also be run directly by preloading the same loader — from the kit root (`kits/nl-to-sql-agent/`) with `node --import tsx tests/<name>.test.js`, or from `apps/` with `node --import tsx ../tests/<name>.test.js`. Running without the loader (plain `node tests/<name>.test.js`) fails for suites that `require()` `.ts` modules, because Node's native type stripping does not transform module `export` syntax.
+The command loads TypeScript modules through `tsx`, so it works on Node 22.18 and later (the kit declares `engines.node >= 22.18.0`). Individual suites can also be run directly by preloading the same loader — from the kit root (`kits/nl-to-sql-agent/`) with `node --import tsx tests/<name>.test.js`, or from `apps/` with `node --import tsx ../tests/<name>.test.js`. Running without the loader (plain `node tests/<name>.test.js`) fails for suites that `require()` `.ts` modules, because Node's native type stripping does not transform module `export` syntax.
 
 ### E2E testing
 

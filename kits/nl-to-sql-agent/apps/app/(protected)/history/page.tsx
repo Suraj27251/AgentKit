@@ -171,7 +171,7 @@ export default function HistoryPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                    <div className="flex items-center gap-2 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                       <button
                         type="button"
                         title={entry.favorite ? "Unfavorite" : "Favorite"}
