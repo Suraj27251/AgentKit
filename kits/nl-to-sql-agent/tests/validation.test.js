@@ -73,7 +73,7 @@ const testCases = [
   {
     name: 'SELECT DISTINCT without TOP',
     input: 'SELECT DISTINCT Name FROM Customers',
-    expectedSql: 'SELECT TOP 1000 DISTINCT Name FROM Customers',
+    expectedSql: 'SELECT DISTINCT TOP 1000 Name FROM Customers',
     expectedSafe: true,
     expectedCapped: false,
   },
@@ -94,14 +94,14 @@ const testCases = [
   {
     name: 'SELECT DISTINCT with an immediate parenthesis is capped before DISTINCT',
     input: 'SELECT DISTINCT(Name) FROM Customers',
-    expectedSql: 'SELECT TOP 1000 DISTINCT(Name) FROM Customers',
+    expectedSql: 'SELECT DISTINCT TOP 1000 (Name) FROM Customers',
     expectedSafe: true,
     expectedCapped: false,
   },
   {
     name: 'SELECT ALL is capped before ALL',
     input: 'SELECT ALL Name FROM Customers',
-    expectedSql: 'SELECT TOP 1000 ALL Name FROM Customers',
+    expectedSql: 'SELECT ALL TOP 1000 Name FROM Customers',
     expectedSafe: true,
     expectedCapped: false,
   },

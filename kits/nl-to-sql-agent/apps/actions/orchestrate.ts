@@ -248,9 +248,10 @@ export async function executeFlow(
     console.log("Lamatic result keys:", resData.result ? Object.keys(resData.result) : "null");
 
     if (resData.status === "error") {
+      console.error("Lamatic error:", resData.message);
       return {
         success: false,
-        error: resData.message || "Lamatic workflow execution failed.",
+        error: "Lamatic workflow execution failed. Please try again later.",
       };
     }
 

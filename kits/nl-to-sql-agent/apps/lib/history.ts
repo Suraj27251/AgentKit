@@ -127,7 +127,7 @@ export function useHistory(userId?: string | null) {
       }
       return next;
     });
-  }, []);
+  }, [storageKey]);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
