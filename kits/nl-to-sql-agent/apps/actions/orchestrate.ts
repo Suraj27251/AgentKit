@@ -21,12 +21,18 @@ if (!sqlFlowStep?.envKey) {
     "nl-to-sql-flow step not found in lamatic.config.ts. Please check the configuration."
   );
 }
-const NL_TO_SQL_FLOW_ID = process.env[sqlFlowStep.envKey];
-if (!NL_TO_SQL_FLOW_ID) {
-  throw new Error(
-    `${sqlFlowStep.envKey} is not set. Please add it to your .env.local file.`
-  );
+
+function resolveFlowId(envKey: string): string {
+  const flowId = process.env[envKey];
+  if (!flowId) {
+    throw new Error(
+      `${envKey} is not set. Please add it to your .env.local file.`
+    );
+  }
+  return flowId;
 }
+
+const NL_TO_SQL_FLOW_ID = resolveFlowId(sqlFlowStep.envKey);
 
 export type NLToSQLResponse = {
   sql: string;
