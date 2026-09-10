@@ -335,6 +335,18 @@ const testCases = [
     expectedSafe: false,
     expectedErrorPattern: /TOP PERCENT/i,
   },
+  {
+    name: 'TOP PERCENT no space before paren',
+    input: 'SELECT TOP(1000)PERCENT * FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /TOP PERCENT/i,
+  },
+  {
+    name: 'TOP PERCENT paren followed directly by PERCENT',
+    input: 'SELECT TOP (100)PERCENT * FROM Customers',
+    expectedSafe: false,
+    expectedErrorPattern: /TOP PERCENT/i,
+  },
   // TOP WITH TIES bypass
   {
     name: 'TOP 1000 WITH TIES',
@@ -351,6 +363,18 @@ const testCases = [
   {
     name: 'TOP WITH TIES lower case + paren',
     input: 'select top (1000) with ties * from Customers order by CustomerId',
+    expectedSafe: false,
+    expectedErrorPattern: /WITH TIES/i,
+  },
+  {
+    name: 'TOP WITH TIES no space before paren',
+    input: 'SELECT TOP(100)WITH TIES * FROM Customers ORDER BY CustomerId',
+    expectedSafe: false,
+    expectedErrorPattern: /WITH TIES/i,
+  },
+  {
+    name: 'TOP WITH TIES paren followed directly by WITH',
+    input: 'SELECT TOP (100)WITH TIES * FROM Customers ORDER BY CustomerId',
     expectedSafe: false,
     expectedErrorPattern: /WITH TIES/i,
   },

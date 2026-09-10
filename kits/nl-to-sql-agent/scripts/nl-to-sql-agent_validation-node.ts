@@ -471,8 +471,8 @@ function validateSqlSafety(sql: string): { isSafe: boolean; error: string } {
   }
 
   // Block TOP ... PERCENT (can return the entire table, bypassing the row limit)
-  // Matches: TOP 100 PERCENT, TOP (100)PERCENT, TOP(100) PERCENT
-  if (/\bTOP\s+\(?\d+\)?\s*PERCENT\b/i.test(stripped)) {
+  // Matches: TOP 100 PERCENT, TOP (100) PERCENT, TOP(100)PERCENT, TOP (100)PERCENT
+  if (/\bTOP\s*\(?\s*\d+\s*\)?\s*PERCENT\b/i.test(stripped)) {
     return {
       isSafe: false,
       error: 'TOP PERCENT is not allowed because it can bypass the maximum result limit.',
@@ -480,8 +480,8 @@ function validateSqlSafety(sql: string): { isSafe: boolean; error: string } {
   }
 
   // Block TOP ... WITH TIES (can return more than the maximum result limit)
-  // Matches: TOP 100 WITH TIES, TOP (100)WITH TIES, TOP(100) WITH TIES
-  if (/\bTOP\s+\(?\d+\)?\s*WITH\s+TIES\b/i.test(stripped)) {
+  // Matches: TOP 100 WITH TIES, TOP (100) WITH TIES, TOP(100)WITH TIES
+  if (/\bTOP\s*\(?\s*\d+\s*\)?\s*WITH\s+TIES\b/i.test(stripped)) {
     return {
       isSafe: false,
       error: 'TOP WITH TIES is not allowed because it can return more than the maximum result limit.',
