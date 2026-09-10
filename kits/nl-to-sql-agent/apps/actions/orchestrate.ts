@@ -1,10 +1,7 @@
 "use server";
 
-import {
-  executeLamaticFlow,
-  NL_TO_SQL_FLOW_ID,
-  LamaticClientError,
-} from "@/lib/lamatic-client";
+import config from "../../lamatic.config";
+import { executeLamaticFlow, LamaticClientError } from "@/lib/lamatic-client";
 import { getSession } from "@/lib/session";
 import {
   isApprovedDemoQuestion,
@@ -13,6 +10,23 @@ import {
 
 const DEMO_RESTRICTION_MESSAGE =
   "Demo account restriction: This public demo supports the predefined example queries shown in the Workspace. Please select one of the available demo questions to see the full NL-to-SQL flow.";
+
+// Per AgentKit conventions, the action reads the flow step definition from the
+// parent kit's lamatic.config and resolves the deployed flow ID through the
+// step's envKey (NL_TO_SQL_FLOW_ID). Fails closed when the config or env var
+// is missing, mirroring lamatic-client.ts.
+const sqlFlowStep = config.steps.find(s => s.id === "nl-to-sql-flow");
+if (!sqlFlowStep?.envKey) {
+  throw new Error(
+    "nl-to-sql-flow step not found in lamatic.config.ts. Please check the configuration."
+  );
+}
+const NL_TO_SQL_FLOW_ID = process.env[sqlFlowStep.envKey];
+if (!NL_TO_SQL_FLOW_ID) {
+  throw new Error(
+    `${sqlFlowStep.envKey} is not set. Please add it to your .env.local file.`
+  );
+}
 
 export type NLToSQLResponse = {
   sql: string;

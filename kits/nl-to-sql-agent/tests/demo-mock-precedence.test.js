@@ -90,8 +90,12 @@ try {
   const stripped = stripTypeScriptTypes(orchestrateSource, { mode: 'transform' });
   moduleJs = stripped
     .replace(
-      /import \{\s*executeLamaticFlow,\s*NL_TO_SQL_FLOW_ID,\s*LamaticClientError\s*\} from "@\/lib\/lamatic-client";/,
-      'const { executeLamaticFlow, NL_TO_SQL_FLOW_ID, LamaticClientError } = require("@/lib/lamatic-client");'
+      'import config from "../../lamatic.config";',
+      'const config = require("../../lamatic.config");'
+    )
+    .replace(
+      /import \{\s*executeLamaticFlow,\s*LamaticClientError\s*\} from "@\/lib\/lamatic-client";/,
+      'const { executeLamaticFlow, LamaticClientError } = require("@/lib/lamatic-client");'
     )
     .replace(
       'import { getSession } from "@/lib/session";',
@@ -117,10 +121,13 @@ function loadOrchestrate(getSessionStub) {
   }
   const captured = { flowCalls: [] };
   const sandbox = {
-    process: { env: { MOCK_LAMATIC: 'true' } },
+    process: { env: { MOCK_LAMATIC: 'true', NL_TO_SQL_FLOW_ID: 'flow-demo-test' } },
     console,
     setTimeout,
     require: (id) => {
+      if (id === '../../lamatic.config') {
+        return { steps: [{ id: 'nl-to-sql-flow', envKey: 'NL_TO_SQL_FLOW_ID' }] };
+      }
       if (id === '@/lib/lamatic-client') {
         return {
           NL_TO_SQL_FLOW_ID: 'flow-demo-test',
