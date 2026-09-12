@@ -193,17 +193,13 @@ function findSelectInsertionPoint(sql: string): number {
       const after = afterPos >= n || !/[a-zA-Z0-9_]/.test(sql[afterPos]);
 
       if (before && after) {
-        // Skip past DISTINCT or ALL so TOP is inserted before them:
-        // SELECT DISTINCT TOP 1000 Name (valid)
-        // SELECT ALL TOP 1000 Name (valid)
-        let insertPos = i + 6;
-        const rest = sql.slice(insertPos);
-        if (/^\s+DISTINCT\b/i.test(rest)) {
-          insertPos += rest.match(/^\s+DISTINCT\b/i)![0].length;
-        } else if (/^\s+ALL\b/i.test(rest)) {
-          insertPos += rest.match(/^\s+ALL\b/i)![0].length;
-        }
-        return insertPos;
+        // Skip past DISTINCT or ALL so TOP is inserted before them, letting
+        // findQuantifierEnd also skip comments/whitespace before the quantifier
+        // so TOP never lands ahead of it:
+        // SELECT DISTINCT TOP 1000 Name          (valid)
+        // SELECT/* c */DISTINCT TOP 1000 Name    (valid, comment skipped)
+        // SELECT /* c */ALL TOP 1000 Name        (valid)
+        return findQuantifierEnd(sql, i + 6);
       }
     }
 
@@ -211,6 +207,71 @@ function findSelectInsertionPoint(sql: string): number {
   }
 
   return -1; // Cannot confidently locate the outer SELECT
+}
+
+/**
+ * Find the position immediately after a DISTINCT / ALL quantifier that follows
+ * the outer SELECT, skipping intervening whitespace, line comments, and block
+ * comments. T-SQL requires the quantifier BEFORE TOP (SELECT DISTINCT TOP 1000
+ * ...), so when a block comment sits between SELECT and the quantifier the
+ * previous insertion point landed on SELECT and produced an invalid
+ * "SELECT TOP 1000 ... DISTINCT" form that SQL Server rejects. Comments are
+ * whitespace-equivalent separators, so they must be skipped just like spaces
+ * before the quantifier is detected.
+ *
+ * Anything other than a quantifier (including a string literal or bracketed
+ * identifier, which can never separate SELECT from a top-level quantifier)
+ * leaves the insertion point right after SELECT, preserving the pre-existing
+ * behavior for non-comment inputs.
+ *
+ * @returns The index just past the quantifier keyword when one is present;
+ *          otherwise the index immediately after SELECT.
+ */
+function findQuantifierEnd(sql: string, start: number): number {
+  let i = start;
+  const n = sql.length;
+
+  while (i < n) {
+    // Whitespace can be skipped freely.
+    if (/\s/.test(sql[i])) {
+      i++;
+      continue;
+    }
+
+    // -- line comment (terminated by \n or \r, matching SQL Server).
+    if (sql[i] === '-' && sql[i + 1] === '-') {
+      while (i < n && sql[i] !== '\n' && sql[i] !== '\r') i++;
+      continue;
+    }
+
+    // /* block comment */.
+    if (sql[i] === '/' && sql[i + 1] === '*') {
+      i += 2;
+      while (i < n && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+      i = Math.min(i + 2, n);
+      continue;
+    }
+
+    break;
+  }
+
+  if (
+    i + 8 <= n &&
+    sql.slice(i, i + 8).toUpperCase() === 'DISTINCT' &&
+    (i + 8 >= n || !/[a-zA-Z0-9_]/.test(sql[i + 8]))
+  ) {
+    return i + 8;
+  }
+
+  if (
+    i + 3 <= n &&
+    sql.slice(i, i + 3).toUpperCase() === 'ALL' &&
+    (i + 3 >= n || !/[a-zA-Z0-9_]/.test(sql[i + 3]))
+  ) {
+    return i + 3;
+  }
+
+  return start;
 }
 
 function normalizeTopClause(sql: string): { normalizedSql: string; limitCapped: boolean; cappable: boolean } {

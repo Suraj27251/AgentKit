@@ -105,6 +105,34 @@ const testCases = [
     expectedSafe: true,
     expectedCapped: false,
   },
+  {
+    name: 'SELECT with a block comment before DISTINCT is capped after DISTINCT',
+    input: 'SELECT/* c */DISTINCT Name FROM Customers',
+    expectedSql: 'SELECT/* c */DISTINCT TOP 1000 Name FROM Customers',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+  {
+    name: 'SELECT with a block comment before ALL is capped after ALL',
+    input: 'SELECT/* c */ALL Name FROM Customers',
+    expectedSql: 'SELECT/* c */ALL TOP 1000 Name FROM Customers',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+  {
+    name: 'SELECT with spaced block comment and DISTINCT is capped after DISTINCT',
+    input: 'SELECT /* c */ DISTINCT Name FROM Customers',
+    expectedSql: 'SELECT /* c */ DISTINCT TOP 1000 Name FROM Customers',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
+  {
+    name: 'SELECT with a line comment before DISTINCT is capped after DISTINCT',
+    input: 'SELECT-- note\nDISTINCT Name FROM Customers',
+    expectedSql: 'SELECT-- note\nDISTINCT TOP 1000 Name FROM Customers',
+    expectedSafe: true,
+    expectedCapped: false,
+  },
   // Case G: Complex query with columns and WHERE
   {
     name: 'Complex query with WHERE',

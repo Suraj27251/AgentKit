@@ -317,7 +317,7 @@ The kit ships standalone `node` test suites in `tests/` that exercise the real p
 npm run test
 ```
 
-The command loads TypeScript modules through `tsx`, so it works on Node 22.18 and later (the kit declares `engines.node >= 22.18.0`). Individual suites can also be run directly by preloading the same loader — from the kit root (`kits/nl-to-sql-agent/`) with `node --import tsx tests/<name>.test.js`, or from `apps/` with `node --import tsx ../tests/<name>.test.js`. Running without the loader (plain `node tests/<name>.test.js`) fails for suites that `require()` `.ts` modules, because Node's native type stripping does not transform module `export` syntax.
+The command loads TypeScript modules through `tsx`, so it works on Node 22.18 and later (the kit declares `engines.node >= 22.18.0`). Individual suites can also be run directly by preloading the same loader — `tsx` lives in `apps/node_modules/` (the kit root has no `package.json`), so run this from `apps/`: `node --import tsx ../tests/<name>.test.js`. Running without the loader (plain `node tests/<name>.test.js`) fails for suites that `require()` `.ts` modules, because Node's native type stripping does not transform module `export` syntax.
 
 ### E2E testing
 
